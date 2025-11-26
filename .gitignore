@@ -11,6 +11,7 @@ downloads/
 eggs/
 .eggs/
 lib/
+!frontend/src/lib/
 lib64/
 parts/
 sdist/
@@ -39,6 +40,7 @@ env/
 *.sqlite
 *.sqlite3
 sql_app.db
+data/
 
 # Environment variables
 .env

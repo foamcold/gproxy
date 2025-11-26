@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8 # 8 days
     
     # Database
-    DATABASE_URL: str = "sqlite+aiosqlite:///./sql_app.db"
+    DATABASE_URL: str = "sqlite+aiosqlite:///./data/sql_app.db"
     
     # Initial Superuser
     FIRST_SUPERUSER: str = "admin"
