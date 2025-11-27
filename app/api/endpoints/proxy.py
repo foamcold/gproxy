@@ -346,10 +346,9 @@ async def chat_completions(
                 log_entry.status_code = response.status_code
                 await db.commit()
                 await response.aclose()
-                # Manually create a streaming response that yields the error and then stops.
-                async def error_stream():
-                    yield f"data: {json.dumps({'error': {'message': error_content.decode(), 'code': response.status_code}})}\n\n"
-                return StreamingResponse(error_stream(), status_code=response.status_code, media_type="text/event-stream")
+                # 将 Gemini 错误转换为 OpenAI 格式并直接返回 JSON
+                openai_error = converter.gemini_error_to_openai(error_content, response.status_code)
+                return JSONResponse(content=openai_error, status_code=response.status_code)
             
             return StreamingResponse(response_generator(response), media_type="text/event-stream")
         
@@ -372,8 +371,9 @@ async def chat_completions(
                 log_entry.status = "error"
                 log_entry.status_code = response.status_code
                 await db.commit()
-                # 直接返回原始错误响应
-                return Response(content=response.content, status_code=response.status_code, media_type=response.headers.get('content-type'))
+                # 将 Gemini 错误转换为 OpenAI 格式
+                openai_error = converter.gemini_error_to_openai(response.content, response.status_code)
+                return JSONResponse(content=openai_error, status_code=response.status_code)
             
             gemini_response = response.json()
             openai_response = converter.gemini_to_openai(gemini_response, model)

@@ -257,4 +257,103 @@ class Converter:
             "choices": choices
         }
 
+    @staticmethod
+    def gemini_error_to_openai(error_content: bytes, status_code: int) -> Dict[str, Any]:
+        """
+        将 Gemini 错误响应转换为 OpenAI 格式
+        
+        Args:
+            error_content: Gemini 错误响应的内容（bytes）
+            status_code: HTTP 状态码
+            
+        Returns:
+            符合 OpenAI 格式的错误对象
+        """
+        error_message = "An error occurred"
+        error_code = None
+        error_type = "api_error"
+        
+        try:
+            # 解码内容
+            decoded_content = error_content.decode('utf-8')
+            print(f"[DEBUG] 原始错误内容: {decoded_content[:200]}")
+            
+            # 尝试解析 Gemini 错误响应
+            gemini_error = json.loads(decoded_content)
+            print(f"[DEBUG] 解析后类型: {type(gemini_error)}")
+            
+            # 如果是列表，取第一个元素
+            if isinstance(gemini_error, list) and len(gemini_error) > 0:
+                print(f"[DEBUG] 是列表，提取第一个元素")
+                gemini_error = gemini_error[0]
+            
+            print(f"[DEBUG] 最终对象类型: {type(gemini_error)}")
+            if isinstance(gemini_error, dict):
+                print(f"[DEBUG] 对象键: {list(gemini_error.keys())}")
+            
+            # Gemini 错误格式通常为: {"error": {"code": xxx, "message": "...", "status": "..."}}
+            if isinstance(gemini_error, dict) and "error" in gemini_error:
+                error_obj = gemini_error["error"]
+                print(f"[DEBUG]  错误对象内容: {error_obj}")
+                
+                # 提取 message
+                if "message" in error_obj:
+                    error_message = error_obj["message"]
+                    print(f"[DEBUG] 提取的 message: {error_message[:100]}")
+                
+                # 提取 code
+                if "code" in error_obj:
+                    error_code = str(error_obj["code"])
+                    print(f"[DEBUG] 提取的 code: {error_code}")
+                
+                # 根据 status 或 code 推断错误类型
+                if "status" in error_obj:
+                    status = error_obj["status"]
+                    print(f"[DEBUG] status: {status}")
+                    if "INVALID" in status or "PERMISSION_DENIED" in status:
+                        error_type = "invalid_request_error"
+                    elif "UNAUTHENTICATED" in status:
+                        error_type = "authentication_error"
+                    elif "RESOURCE_EXHAUSTED" in status:
+                        error_type = "rate_limit_error"
+            else:
+                # 如果不是预期的格式，使用原始内容作为错误消息
+                print(f"[DEBUG] 非预期格式，使用原始内容")
+                error_message = decoded_content
+                
+        except Exception as e:
+            # 如果解析失败，使用原始内容
+            print(f"[DEBUG] 解析失败: {e}")
+            import traceback
+            traceback.print_exc()
+            try:
+                error_message = error_content.decode('utf-8')
+            except:
+                error_message = f"HTTP {status_code} Error"
+        
+        # 如果没有提取到 code，使用 HTTP 状态码的字符串形式
+        if error_code is None:
+            # 常见的 API key 错误码映射
+            if status_code == 400:
+                error_code = "invalid_api_key"
+            elif status_code == 401:
+                error_code = "invalid_api_key"
+            elif status_code == 403:
+                error_code = "permission_denied"
+            elif status_code == 429:
+                error_code = "rate_limit_exceeded"
+            else:
+                error_code = f"http_{status_code}"
+        
+        print(f"[DEBUG] 最终返回 - message前50字符: {error_message[:50]}, code: {error_code}, type: {error_type}")
+        
+        return {
+            "error": {
+                "message": error_message,
+                "type": error_type,
+                "param": None,
+                "code": error_code
+            }
+        }
+
 converter = Converter()
