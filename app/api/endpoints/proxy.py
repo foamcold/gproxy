@@ -3,7 +3,7 @@ import time
 import httpx
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.api import deps
@@ -17,8 +17,126 @@ from app.services.gemini_service import gemini_service
 from app.services.converter import converter
 from app.services.variable_service import variable_service
 from app.services.regex_service import regex_service
+from app.core.config import settings
 
 router = APIRouter()
+
+
+@router.get("/v1/models")
+async def list_models(request: Request):
+    """
+    处理 GET /v1/models 请求，通过代理到 Google API 列出可用模型。
+    """
+    # 1. 提取 API 密钥
+    auth_header = request.headers.get("authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="未提供 API 密钥")
+    
+    api_key = auth_header.split(" ")[1]
+
+    # 2. 代理到 Google API
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(
+                "https://generativelanguage.googleapis.com/v1beta/models",
+                params={"key": api_key}
+            )
+            response.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            raise HTTPException(status_code=e.response.status_code, detail=e.response.text)
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=500, detail=f"请求 Google API 时出错: {e}")
+
+    # 3. 转换响应
+    try:
+        gemini_response = response.json()
+        models = gemini_response.get("models", [])
+        
+        openai_models = []
+        for model in models:
+            model_id = model.get("name", "").replace("models/", "")
+            openai_models.append({
+                "id": model_id,
+                "object": "model",
+                "created": int(time.time()),
+                "owned_by": "google"
+            })
+            
+        return {
+            "object": "list",
+            "data": openai_models
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"解析或转换模型列表时出错: {e}")
+
+
+def get_api_key(request: Request) -> str:
+    """
+    从请求中提取 API 密钥。
+    支持从 Authorization 头、x-goog-api-key 头或 key 查询参数中提取。
+    """
+    # 1. 从 Authorization 头提取
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        key = auth_header.split(" ")[1]
+        if key:
+            return key
+
+    # 2. 从 x-goog-api-key 头提取
+    x_goog_api_key = request.headers.get("x-goog-api-key")
+    if x_goog_api_key:
+        return x_goog_api_key
+
+    # 3. 从 key 查询参数提取
+    key_param = request.query_params.get("key")
+    if key_param:
+        return key_param
+
+    raise HTTPException(status_code=401, detail="未提供 API 密钥")
+
+
+@router.api_route("/v1beta/{path:path}", methods=["POST", "PUT", "DELETE", "GET"])
+async def proxy_beta_requests(request: Request, path: str):
+    """
+    通用代理，处理 /v1beta/ 下的所有请求，并以流的形式返回响应。
+    """
+    api_key = get_api_key(request)
+    
+    target_url = f"https://generativelanguage.googleapis.com/v1beta/{path}"
+
+    # 移除 Host, Authorization, x-goog-api-key, key 等头部，避免冲突
+    headers = {k: v for k, v in request.headers.items() if k.lower() not in ["host", "authorization", "x-goog-api-key", "key"]}
+    
+    params = dict(request.query_params)
+    params['key'] = api_key
+
+    body = await request.body()
+
+    async def response_generator():
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            try:
+                async with client.stream(
+                    method=request.method,
+                    url=target_url,
+                    headers=headers,
+                    params=params,
+                    content=body,
+                ) as response:
+                    if response.status_code >= 400:
+                        error_content = await response.aread()
+                        error_detail = error_content.decode()
+                        print(f"Error from Google API: {response.status_code} - {error_detail}")
+                        yield json.dumps({"error": {"message": error_detail, "code": response.status_code}}).encode('utf-8')
+                        return
+
+                    async for chunk in response.aiter_bytes():
+                        yield chunk
+            except Exception as e:
+                print(f"Error proxying request to Google API: {e}")
+                error_message = json.dumps({"error": {"message": f"An error occurred during proxying: {str(e)}", "code": 500}})
+                yield error_message.encode('utf-8')
+
+    return StreamingResponse(response_generator(), media_type="application/json")
 
 @router.post("/v1/chat/completions")
 async def chat_completions(
@@ -169,7 +287,7 @@ async def chat_completions(
     ttft = 0
     
     method = "streamGenerateContent" if openai_request.stream else "generateContent"
-    target_url = f"/v1beta/models/{model}:{method}"
+    target_url = f"{settings.GEMINI_BASE_URL}/v1beta/models/{model}:{method}"
     headers = {
         "Content-Type": "application/json",
         "x-goog-api-key": official_key

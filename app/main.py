@@ -47,8 +47,10 @@ app = FastAPI(
 
 from app.api.api import api_router
 from app.api.endpoints import generic_proxy
+from app.api.endpoints import proxy
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
+app.include_router(proxy.router)
 app.include_router(generic_proxy.router, tags=["generic_proxy"])
 
 @app.get("/")
