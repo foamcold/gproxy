@@ -152,9 +152,15 @@ async def chat_completions(
     
     gemini_payload = await converter.openai_to_gemini(openai_request)
 
-    # 8. Get Official Key
+    # 8. Get API Key (Official or User's)
     try:
-        official_key = await gemini_service.get_active_key(db)
+        if exclusive_key:
+            # Registered user: use official key pool
+            official_key = await gemini_service.get_active_key(db)
+        else:
+            # Non-registered user: pass through user's key
+            official_key = api_key
+            
     except HTTPException as e:
         raise e
 

@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.endpoints import auth, users, keys, presets, regex, proxy, logs, system
+from app.api.endpoints import auth, users, keys, presets, regex, proxy, logs, system, generic_proxy, gemini_routes
 
 api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
@@ -10,4 +10,6 @@ api_router.include_router(regex.router, prefix="/regex", tags=["regex"])
 api_router.include_router(logs.router, prefix="/logs", tags=["logs"])
 api_router.include_router(system.router, prefix="/system", tags=["system"])
 api_router.include_router(proxy.router, tags=["proxy"]) # No prefix for /v1/chat/completions
+api_router.include_router(gemini_routes.router, tags=["gemini"]) # No prefix for /v1beta/*
+api_router.include_router(generic_proxy.router, tags=["generic_proxy"]) # Generic proxy at root
 
