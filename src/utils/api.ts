@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // @ts-ignore
-const API_BASE_URL = import.meta.env.VITE_API_V1_STR || '/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_STR || '/api';
 
 // Axios实例
 const apiClient = axios.create({
