@@ -145,7 +145,7 @@ print(response.choices[0].message.content)
 PROJECT_NAME = "Gproxy"
 VITE_API_STR = "/api"
 SECRET_KEY = "your-secret-key"  # 修改为安全的密钥!
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 8  # 8 天
+ACCESS_TOKEN_EXPIRE_MINUTES = 43200  # 30 天
 DATABASE_URL = "sqlite+aiosqlite:///./sql_app.db"
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com"
 ```
