@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime
 from datetime import datetime, timedelta
-from app.db.base_class import Base
+from app.core.database import Base
 
 class VerificationCode(Base):
     """邮箱验证码模型"""

@@ -1,3 +1,15 @@
+from typing import Any, List
+from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi.encoders import jsonable_encoder
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+
+from app.api import deps
+from app.core import security
+from app.models.user import User
+from app.schemas.user import User as UserSchema, UserUpdate
+
+router = APIRouter()
 
 @router.put("/me", response_model=UserSchema)
 async def update_user_me(
@@ -148,4 +160,3 @@ async def search_users(
     )
     users = result.scalars().all()
     return users
-

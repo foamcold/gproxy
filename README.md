@@ -47,7 +47,6 @@ cp .env.example .env
 3. **前端设置**
 
 ```bash
-cd frontend
 npm install
 ```
 
@@ -58,7 +57,6 @@ npm install
 uvicorn app.main:app --reload
 
 # 新终端:启动前端 (默认端口 5173)
-cd frontend
 npm run dev
 ```
 
@@ -165,11 +163,9 @@ gproxy/
 │   ├── models/            # 数据库模型
 │   ├── schemas/           # Pydantic schemas
 │   └── services/          # 业务逻辑
-├── frontend/              # 前端应用
-│   ├── src/
-│   │   ├── pages/        # 页面组件
-│   │   └── components/   # UI 组件
-│   └── ...
+├── src/                   # 前端源码
+│   ├── pages/            # 页面组件
+│   └── components/       # UI 组件
 ├── requirements.txt       # Python 依赖
 └── README.md             # 本文件
 ```
@@ -189,7 +185,6 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ### 前端开发
 
 ```bash
-cd frontend
 npm install
 npm run dev
 ```

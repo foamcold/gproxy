@@ -63,9 +63,11 @@ logs/
 Thumbs.db
 
 # 前端构建
-frontend/dist/
-frontend/build/
-frontend/.turbo
+# 前端构建
+dist/
+build/
+.turbo
+
 
 # 测试
 .coverage
