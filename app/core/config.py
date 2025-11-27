@@ -13,11 +13,6 @@ class Settings(BaseSettings):
     
     # Database
     DATABASE_URL: str = "sqlite+aiosqlite:///./data/sql_app.db"
-    
-    # Initial Superuser
-    FIRST_SUPERUSER: str = "admin"
-    FIRST_SUPERUSER_PASSWORD: str = "admin"
-    FIRST_SUPERUSER_EMAIL: str = "admin@example.com"
 
     # Proxy
     GEMINI_BASE_URL: str = "https://generativelanguage.googleapis.com"

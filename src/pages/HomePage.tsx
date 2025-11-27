@@ -1,9 +1,28 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import axios from 'axios';
 import { ArrowRight, Zap, Shield, Settings, Terminal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function HomePage() {
     const isLoggedIn = !!localStorage.getItem('token');
+    const navigate = useNavigate();
+
+    // 检查系统是否需要初始化
+    useEffect(() => {
+        const checkSetupStatus = async () => {
+            try {
+                const response = await axios.get('/api/v1/setup/status');
+                if (response.data.needs_setup) {
+                    navigate('/initialize');
+                }
+            } catch (error) {
+                console.error('Failed to check setup status:', error);
+            }
+        };
+
+        checkSetupStatus();
+    }, [navigate]);
 
     return (
         <div className="min-h-screen bg-background flex flex-col">

@@ -1,12 +1,9 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import os
-from sqlalchemy import select
 from app.core.config import settings
-from app.core.database import engine, Base, SessionLocal
-from app.core.security import get_password_hash
+from app.core.database import engine, Base
 from app.models import * # noqa
-from app.models.user import User
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -21,20 +18,8 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     
-    # Create initial superuser
-    async with SessionLocal() as session:
-        result = await session.execute(select(User).filter(User.username == settings.FIRST_SUPERUSER))
-        user = result.scalars().first()
-        if not user:
-            user = User(
-                username=settings.FIRST_SUPERUSER,
-                email=settings.FIRST_SUPERUSER_EMAIL,
-                password_hash=get_password_hash(settings.FIRST_SUPERUSER_PASSWORD),
-                is_active=True,
-                role="admin"
-            )
-            session.add(user)
-            await session.commit()
+    # Note: 管理员账户现在通过 Web 界面初始化流程创建
+    # 请访问应用首页完成初始化设置
             
     yield
 
