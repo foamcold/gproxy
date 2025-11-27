@@ -22,38 +22,18 @@ wheels/
 *.egg
 MANIFEST
 
-# Virtual Environment
+# VENV
 venv/
 ENV/
 env/
 .venv
 
-# IDEs
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
-sql_app.db
-data/
-
-# Environment variables
-.env
-.env.local
-.env.*.local
-
-# Logs
-*.log
-logs/
-
-# OS
-.DS_Store
-Thumbs.db
 
 # Node
 node_modules/
@@ -62,18 +42,39 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# Frontend build
+# 数据库
+*.db
+*.sqlite
+*.sqlite3
+sql_app.db
+data/
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+
+# 日志
+*.log
+logs/
+
+# 操作系统
+.DS_Store
+Thumbs.db
+
+# 前端构建
 frontend/dist/
 frontend/build/
 frontend/.turbo
 
-# Testing
+# 测试
 .coverage
 htmlcov/
 .pytest_cache/
 .tox/
 
-# Misc
+# 杂项
 *.bak
 *.tmp
 .cache/
+temp/
