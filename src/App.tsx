@@ -7,7 +7,6 @@ import DashboardHome from './pages/dashboard/DashboardHome';
 import PresetsPage from './pages/dashboard/PresetsPage';
 import RegexPage from './pages/dashboard/RegexPage';
 import KeysPage from './pages/dashboard/KeysPage';
-import PollingPage from './pages/dashboard/PollingPage';
 import LogsPage from './pages/dashboard/LogsPage';
 import SettingsPage from './pages/dashboard/SettingsPage';
 import AdminUsersPage from './pages/dashboard/AdminUsersPage';
@@ -26,7 +25,6 @@ function App() {
                     <Route path="presets" element={<PresetsPage />} />
                     <Route path="regex" element={<RegexPage />} />
                     <Route path="keys" element={<KeysPage />} />
-                    <Route path="official-keys" element={<PollingPage />} />
                     <Route path="logs" element={<LogsPage />} />
                     <Route path="settings" element={<SettingsPage />} />
                     <Route path="users" element={<AdminUsersPage />} />
