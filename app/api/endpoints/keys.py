@@ -95,11 +95,13 @@ async def create_exclusive_key(
     """
     Generate new exclusive key.
     """
-    # Generate key logic: gapi- + user_id + timestamp + hash
+    # Generate key logic: gapi- + (sha256前16位 + sha256后16位)
+    # SHA256 由 用户id + 用户名 + 时间戳 生成
     timestamp = str(int(time.time()))
-    raw_str = f"{current_user.id}{timestamp}{current_user.email}"
-    hash_str = hashlib.sha256(raw_str.encode()).hexdigest()[:16]
-    generated_key = f"gapi-{current_user.id}-{timestamp}-{hash_str}"
+    raw_str = f"{current_user.id}{current_user.username}{timestamp}"
+    hash_full = hashlib.sha256(raw_str.encode()).hexdigest()
+    hash_str = hash_full[:16] + hash_full[-16:]
+    generated_key = f"gapi-{hash_str}"
     
     key = ExclusiveKey(
         key=generated_key,
