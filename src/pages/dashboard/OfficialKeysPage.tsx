@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '@/utils/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -36,7 +37,7 @@ export default function OfficialKeysPage() {
     const fetchKeys = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.get<OfficialKey[]>('/api/v1/keys/official', {
+            const response = await axios.get<OfficialKey[]>(`${API_BASE_URL}/keys/official`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setKeys(response.data);
@@ -57,7 +58,7 @@ export default function OfficialKeysPage() {
         e.preventDefault();
         const token = localStorage.getItem('token');
         try {
-            await axios.post('/api/v1/keys/official', formData, {
+            await axios.post(`${API_BASE_URL}/keys/official`, formData, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setIsDialogOpen(false);
@@ -78,7 +79,7 @@ export default function OfficialKeysPage() {
     const handleToggleActive = async (id: number, isActive: boolean) => {
         const token = localStorage.getItem('token');
         try {
-            await axios.patch(`/api/v1/keys/official/${id}`,
+            await axios.patch(`${API_BASE_URL}/keys/official/${id}`,
                 { is_active: isActive },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -100,7 +101,7 @@ export default function OfficialKeysPage() {
 
         const token = localStorage.getItem('token');
         try {
-            await axios.delete(`/api/v1/keys/official/${id}`, {
+            await axios.delete(`${API_BASE_URL}/keys/official/${id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             fetchKeys();

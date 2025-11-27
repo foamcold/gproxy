@@ -4,7 +4,7 @@ from typing import Optional
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Gproxy"
     VERSION: str = "1.0.0"
-    API_V1_STR: str = "/api/v1"
+    VITE_API_V1_STR: str = "/api/v1"
     
     # Security
     SECRET_KEY: str = "your-super-secret-key-change-it-in-production"

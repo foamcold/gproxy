@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '@/utils/api';
 import { cn } from '@/lib/utils';
 
 interface Log {
@@ -22,7 +23,7 @@ export default function LogsPage() {
     const fetchLogs = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.get('/api/v1/logs/', {
+            const response = await axios.get(`${API_BASE_URL}/logs/`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setLogs(response.data);

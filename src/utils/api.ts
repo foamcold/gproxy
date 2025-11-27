@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_BASE_URL = '/api/v1';
+// @ts-ignore
+const API_BASE_URL = import.meta.env.VITE_API_V1_STR || '/api/v1';
 
 // Axios实例
 const apiClient = axios.create({
@@ -32,4 +33,5 @@ apiClient.interceptors.response.use(
     }
 );
 
+export { API_BASE_URL };
 export default apiClient;

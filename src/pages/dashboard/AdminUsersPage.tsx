@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '@/utils/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -48,7 +49,7 @@ export default function AdminUsersPage() {
     const fetchUsers = async () => {
         const token = localStorage.getItem('token');
         try {
-            const response = await axios.get<User[]>('/api/v1/users/', {
+            const response = await axios.get<User[]>(`${API_BASE_URL}/users/`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setUsers(response.data);
@@ -70,7 +71,7 @@ export default function AdminUsersPage() {
 
         const token = localStorage.getItem('token');
         try {
-            const response = await axios.get<User[]>(`/api/v1/users/search?q=${searchQuery}`, {
+            const response = await axios.get<User[]>(`${API_BASE_URL}/users/search?q=${searchQuery}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setFilteredUsers(response.data);
@@ -86,7 +87,7 @@ export default function AdminUsersPage() {
         e.preventDefault();
         const token = localStorage.getItem('token');
         try {
-            await axios.post('/api/v1/users/', formData, {
+            await axios.post(`${API_BASE_URL}/users/`, formData, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setIsDialogOpen(false);
@@ -107,7 +108,7 @@ export default function AdminUsersPage() {
     const handleToggleActive = async (userId: number) => {
         const token = localStorage.getItem('token');
         try {
-            await axios.put(`/api/v1/users/${userId}/toggle-active`, {}, {
+            await axios.put(`${API_BASE_URL}/users/${userId}/toggle-active`, {}, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             fetchUsers();
@@ -129,7 +130,7 @@ export default function AdminUsersPage() {
 
         const token = localStorage.getItem('token');
         try {
-            await axios.delete(`/api/v1/users/${userId}`, {
+            await axios.delete(`${API_BASE_URL}/users/${userId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             fetchUsers();

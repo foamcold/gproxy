@@ -143,7 +143,7 @@ print(response.choices[0].message.content)
 
 ```python
 PROJECT_NAME = "Gproxy"
-API_V1_STR = "/api/v1"
+VITE_API_V1_STR = "/api/v1"
 SECRET_KEY = "your-secret-key"  # 修改为安全的密钥!
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 8  # 8 天
 DATABASE_URL = "sqlite+aiosqlite:///./sql_app.db"
@@ -151,6 +151,13 @@ GEMINI_BASE_URL = "https://generativelanguage.googleapis.com"
 ```
 
 可通过环境变量或 `.env` 文件覆盖这些设置。
+
+要修改 API 基础路径，只需在 `.env` 文件中设置 `VITE_API_V1_STR` 即可同时为前端和后端生效：
+
+```
+# .env 文件
+VITE_API_V1_STR=/my/custom/api
+```
 
 ## 🏗️ 项目结构
 
@@ -205,9 +212,9 @@ npm run dev
 
 - `POST /v1/chat/completions` - 聊天完成 (OpenAI 兼容)
 - `GET /v1/models` - 列出可用模型
-- `POST /api/v1/auth/login/access-token` - 用户登录
-- `GET /api/v1/presets/` - 获取预设列表
-- `POST /api/v1/keys/exclusive` - 生成专属密钥
+- `POST {VITE_API_V1_STR}/auth/login/access-token` - 用户登录
+- `GET {VITE_API_V1_STR}/presets/` - 获取预设列表
+- `POST {VITE_API_V1_STR}/keys/exclusive` - 生成专属密钥
 
 ## 🤝 贡献
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '@/utils/api';
 import { Plus, Trash2, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,8 +46,8 @@ export default function KeysPage() {
 
         try {
             const [officialRes, exclusiveRes] = await Promise.all([
-                axios.get('/api/v1/keys/official', { headers }),
-                axios.get('/api/v1/keys/exclusive', { headers })
+                axios.get(`${API_BASE_URL}/keys/official`, { headers }),
+                axios.get(`${API_BASE_URL}/keys/exclusive`, { headers })
             ]);
             setOfficialKeys(officialRes.data);
             setExclusiveKeys(exclusiveRes.data);
@@ -63,7 +64,7 @@ export default function KeysPage() {
         e.preventDefault();
         const token = localStorage.getItem('token');
         try {
-            await axios.post('/api/v1/keys/official', officialForm, {
+            await axios.post(`${API_BASE_URL}/keys/official`, officialForm, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setIsOfficialDialogOpen(false);
@@ -78,7 +79,7 @@ export default function KeysPage() {
         e.preventDefault();
         const token = localStorage.getItem('token');
         try {
-            await axios.post('/api/v1/keys/exclusive', exclusiveForm, {
+            await axios.post(`${API_BASE_URL}/keys/exclusive`, exclusiveForm, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setIsExclusiveDialogOpen(false);
@@ -93,7 +94,7 @@ export default function KeysPage() {
         if (!confirm('删除此官方密钥?')) return;
         const token = localStorage.getItem('token');
         try {
-            await axios.delete(`/api/v1/keys/official/${id}`, {
+            await axios.delete(`${API_BASE_URL}/keys/official/${id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             fetchKeys();
@@ -106,7 +107,7 @@ export default function KeysPage() {
         if (!confirm('删除此专属密钥?')) return;
         const token = localStorage.getItem('token');
         try {
-            await axios.delete(`/api/v1/keys/exclusive/${id}`, {
+            await axios.delete(`${API_BASE_URL}/keys/exclusive/${id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             fetchKeys();

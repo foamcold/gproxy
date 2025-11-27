@@ -12,7 +12,7 @@ from app.models.user import User
 from app.schemas.token import TokenPayload
 
 reusable_oauth2 = OAuth2PasswordBearer(
-    tokenUrl=f"{settings.API_V1_STR}/auth/login/access-token"
+    tokenUrl=f"{settings.VITE_API_V1_STR}/auth/login/access-token"
 )
 
 async def get_current_user(

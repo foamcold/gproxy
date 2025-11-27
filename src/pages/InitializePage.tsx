@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { API_BASE_URL } from '@/utils/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,7 +25,7 @@ export default function InitializePage() {
     useEffect(() => {
         const checkStatus = async () => {
             try {
-                const response = await axios.get('/api/v1/setup/status');
+                const response = await axios.get(`${API_BASE_URL}/setup/status`);
                 const { needs_setup, database_type } = response.data;
 
                 setDatabaseType(database_type);
@@ -87,7 +88,7 @@ export default function InitializePage() {
         setCurrentStep('initializing');
 
         try {
-            const response = await axios.post('/api/v1/setup/initialize', {
+            const response = await axios.post(`${API_BASE_URL}/setup/initialize`, {
                 username,
                 password,
                 confirm_password: confirmPassword,

@@ -26,7 +26,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    openapi_url=f"{settings.VITE_API_V1_STR}/openapi.json",
     lifespan=lifespan
 )
 
@@ -34,7 +34,7 @@ from app.api.api import api_router
 from app.api.endpoints import generic_proxy
 from app.api.endpoints import proxy
 
-app.include_router(api_router, prefix=settings.API_V1_STR)
+app.include_router(api_router, prefix=settings.VITE_API_V1_STR)
 app.include_router(proxy.router)
 app.include_router(generic_proxy.router, tags=["generic_proxy"])
 

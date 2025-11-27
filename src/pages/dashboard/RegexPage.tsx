@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '@/utils/api';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
@@ -125,7 +126,7 @@ export default function RegexPage() {
     const fetchRules = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.get<RegexRule[]>('/api/v1/regex/', {
+            const response = await axios.get<RegexRule[]>(`${API_BASE_URL}/regex/`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setRules(response.data.sort((a, b) => a.sort_order - b.sort_order));
@@ -164,7 +165,7 @@ export default function RegexPage() {
         try {
             await Promise.all(
                 updatedRules.map((rule) =>
-                    axios.put(`/api/v1/regex/${rule.id}`, {
+                    axios.put(`${API_BASE_URL}/regex/${rule.id}`, {
                         name: rule.name,
                         pattern: rule.pattern,
                         replacement: rule.replacement,
@@ -190,13 +191,13 @@ export default function RegexPage() {
         const token = localStorage.getItem('token');
         try {
             if (editingRule) {
-                await axios.put(`/api/v1/regex/${editingRule.id}`,
+                await axios.put(`${API_BASE_URL}/regex/${editingRule.id}`,
                     { ...formData, sort_order: editingRule.sort_order },
                     { headers: { Authorization: `Bearer ${token}` } }
                 );
                 toast({ variant: 'success', title: '更新成功' });
             } else {
-                await axios.post('/api/v1/regex/',
+                await axios.post(`${API_BASE_URL}/regex/`,
                     { ...formData, sort_order: rules.length },
                     { headers: { Authorization: `Bearer ${token}` } }
                 );
@@ -214,7 +215,7 @@ export default function RegexPage() {
         if (!confirm('确定要删除此规则吗?')) return;
         const token = localStorage.getItem('token');
         try {
-            await axios.delete(`/api/v1/regex/${id}`, {
+            await axios.delete(`${API_BASE_URL}/regex/${id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             fetchRules();
@@ -252,7 +253,7 @@ export default function RegexPage() {
             const token = localStorage.getItem('token');
 
             for (const rule of importedRules) {
-                await axios.post('/api/v1/regex/', {
+                await axios.post(`${API_BASE_URL}/regex/`, {
                     name: rule.name,
                     pattern: rule.pattern,
                     replacement: rule.replacement,

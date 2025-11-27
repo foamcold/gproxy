@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '@/utils/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,7 +15,7 @@ export default function SettingsPage() {
         const fetchUser = async () => {
             const token = localStorage.getItem('token');
             try {
-                const response = await axios.get('/api/v1/users/me', {
+                const response = await axios.get(`${API_BASE_URL}/users/me`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setUser(response.data);
@@ -30,7 +31,7 @@ export default function SettingsPage() {
         e.preventDefault();
         const token = localStorage.getItem('token');
         try {
-            await axios.put('/api/v1/users/me',
+            await axios.put(`${API_BASE_URL}/users/me`,
                 { email, password: password || undefined },
                 { headers: { Authorization: `Bearer ${token}` } }
             );

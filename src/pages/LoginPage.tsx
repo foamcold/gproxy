@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { API_BASE_URL } from '@/utils/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,7 +26,7 @@ export default function LoginPage() {
     useEffect(() => {
         const fetchConfig = async () => {
             try {
-                const response = await axios.get('/api/v1/system/config');
+                const response = await axios.get(`${API_BASE_URL}/system/config`);
                 setSystemConfig(response.data);
             } catch (error) {
                 // 如果无法加载配置，使用默认值
@@ -46,7 +47,7 @@ export default function LoginPage() {
         }
 
         try {
-            await axios.post('/api/v1/auth/send-code', {
+            await axios.post(`${API_BASE_URL}/auth/send-code`, {
                 email,
                 type: 'register'
             });
@@ -80,7 +81,7 @@ export default function LoginPage() {
     // 验证验证码
     const verifyCode = async () => {
         try {
-            await axios.post('/api/v1/auth/verify-code', {
+            await axios.post(`${API_BASE_URL}/auth/verify-code`, {
                 email,
                 code: verificationCode,
                 type: 'register'
@@ -106,7 +107,7 @@ export default function LoginPage() {
             formData.append('username', username);
             formData.append('password', password);
 
-            const response = await axios.post('/api/v1/auth/login/access-token', formData);
+            const response = await axios.post(`${API_BASE_URL}/auth/login/access-token`, formData);
             localStorage.setItem('token', response.data.access_token);
 
             toast({
@@ -163,7 +164,7 @@ export default function LoginPage() {
                 registerData.turnstile_token = turnstileToken;
             }
 
-            await axios.post('/api/v1/users/open', registerData);
+            await axios.post(`${API_BASE_URL}/users/open`, registerData);
 
             toast({
                 variant: 'success',

@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '@/utils/api';
 import { ArrowRight, Zap, Shield, Settings, Terminal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -12,7 +13,7 @@ export default function HomePage() {
     useEffect(() => {
         const checkSetupStatus = async () => {
             try {
-                const response = await axios.get('/api/v1/setup/status');
+                const response = await axios.get(`${API_BASE_URL}/setup/status`);
                 if (response.data.needs_setup) {
                     navigate('/initialize');
                 }
