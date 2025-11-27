@@ -133,7 +133,7 @@ async def initialize_system(
         # 7. 创建管理员账户
         admin_user = User(
             username=request.username,
-            email=f"{request.username}@gproxy.local",  # 默认邮箱
+            email=f"{request.username}@example.com",  # 默认邮箱
             password_hash=security.get_password_hash(request.password),
             is_active=True,
             role="admin"
