@@ -134,7 +134,7 @@ export default function RegexPage() {
             toast({
                 variant: 'error',
                 title: '加载失败',
-                description: '无法加载正则规则',
+                description: '无法加载正则',
             });
         }
     };
@@ -279,7 +279,7 @@ export default function RegexPage() {
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold tracking-tight">正则规则</h1>
+                <h1 className="text-3xl font-bold tracking-tight">正则</h1>
                 <div className="flex gap-2">
                     <Button onClick={handleExport} variant="outline" size="sm">
                         <Download className="w-4 h-4 mr-2" />

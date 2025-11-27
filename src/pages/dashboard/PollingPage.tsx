@@ -28,7 +28,7 @@ interface OfficialKey {
     created_at: string;
 }
 
-export default function OfficialKeysPage() {
+export default function PollingPage() {
     const [keys, setKeys] = useState<OfficialKey[]>([]);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [formData, setFormData] = useState({ name: '', key: '', is_active: true });

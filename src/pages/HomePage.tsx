@@ -122,7 +122,7 @@ export default function HomePage() {
                             <FeatureCard
                                 icon={<Terminal className="w-10 h-10 text-purple-500" />}
                                 title="正则处理"
-                                description="通过请求前和响应后的正则规则进行高级文本处理。自动清理数据或强制格式化。"
+                                description="通过请求前和响应后的正则进行高级文本处理。自动清理数据或强制格式化。"
                             />
                             <FeatureCard
                                 icon={<Shield className="w-10 h-10 text-green-500" />}

@@ -11,6 +11,18 @@ from app.schemas.user import User as UserSchema, UserUpdate
 
 router = APIRouter()
 
+@router.get("/", response_model=List[UserSchema])
+async def read_users(
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_superuser),
+) -> Any:
+    """
+    Retrieve users.
+    """
+    result = await db.execute(select(User))
+    users = result.scalars().all()
+    return users
+
 @router.put("/me", response_model=UserSchema)
 async def update_user_me(
     *,
