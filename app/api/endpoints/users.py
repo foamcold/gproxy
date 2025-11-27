@@ -1,58 +1,3 @@
-from typing import Any, List
-from fastapi import APIRouter, Body, Depends, HTTPException
-from fastapi.encoders import jsonable_encoder
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
-from app.api import deps
-from app.core import security
-from app.models.user import User
-from app.schemas.user import User as UserSchema, UserCreate, UserUpdate
-
-router = APIRouter()
-
-@router.get("/", response_model=List[UserSchema])
-async def read_users(
-    db: AsyncSession = Depends(deps.get_db),
-    skip: int = 0,
-    limit: int = 100,
-    current_user: User = Depends(deps.get_current_active_superuser),
-) -> Any:
-    """
-    Retrieve users.
-    """
-    result = await db.execute(select(User).offset(skip).limit(limit))
-    users = result.scalars().all()
-    return users
-
-@router.post("/", response_model=UserSchema)
-async def create_user(
-    *,
-    db: AsyncSession = Depends(deps.get_db),
-    user_in: UserCreate,
-    current_user: User = Depends(deps.get_current_active_superuser),
-) -> Any:
-    """
-    Create new user.
-    """
-    result = await db.execute(select(User).filter(User.email == user_in.email))
-    user = result.scalars().first()
-    if user:
-        raise HTTPException(
-            status_code=400,
-            detail="The user with this username already exists in the system.",
-        )
-    
-    user = User(
-        email=user_in.email,
-        username=user_in.username,
-        password_hash=security.get_password_hash(user_in.password),
-        is_active=user_in.is_active,
-        role=user_in.role,
-    )
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
-    return user
 
 @router.put("/me", response_model=UserSchema)
 async def update_user_me(
@@ -122,3 +67,85 @@ async def create_user_open(
     await db.commit()
     await db.refresh(user)
     return user
+
+@router.put("/{user_id}/toggle-active", response_model=UserSchema)
+async def toggle_user_active(
+    *,
+    db: AsyncSession = Depends(deps.get_db),
+    user_id: int,
+    current_user: User = Depends(deps.get_current_active_superuser),
+) -> Any:
+    """
+    Toggle user active status (enable/disable).
+    """
+    result = await db.execute(select(User).filter(User.id == user_id))
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if user.id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot disable yourself")
+    
+    user.is_active = not user.is_active
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+@router.delete("/{user_id}", response_model=UserSchema)
+async def delete_user(
+    *,
+    db: AsyncSession = Depends(deps.get_db),
+    user_id: int,
+    current_user: User = Depends(deps.get_current_active_superuser),
+) -> Any:
+    """
+    Delete (deactivate) user.
+    """
+    result = await db.execute(select(User).filter(User.id == user_id))
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if user.id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot delete yourself")
+    
+    # 软删除：设置为不活跃
+    user.is_active = False
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+@router.get("/search", response_model=List[UserSchema])
+async def search_users(
+    *,
+    db: AsyncSession = Depends(deps.get_db),
+    q: str = "",
+    current_user: User = Depends(deps.get_current_active_superuser),
+) -> Any:
+    """
+    Search users by ID or username.
+    """
+    if not q:
+        # 如果没有搜索词，返回所有用户
+        result = await db.execute(select(User))
+        users = result.scalars().all()
+        return users
+    
+    # 尝试按ID搜索
+    try:
+        user_id = int(q)
+        result = await db.execute(select(User).filter(User.id == user_id))
+        user = result.scalars().first()
+        return [user] if user else []
+    except ValueError:
+        pass
+    
+    # 按用户名模糊搜索
+    result = await db.execute(
+        select(User).filter(User.username.ilike(f"%{q}%"))
+    )
+    users = result.scalars().all()
+    return users
+

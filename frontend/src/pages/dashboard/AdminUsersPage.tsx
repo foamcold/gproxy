@@ -12,6 +12,8 @@ import {
     DialogTrigger,
     DialogFooter,
 } from '@/components/ui/dialog';
+import { useToast } from '@/hooks/useToast';
+import { Search, UserPlus, Ban, Trash2, UserCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface User {
@@ -25,24 +27,60 @@ interface User {
 
 export default function AdminUsersPage() {
     const [users, setUsers] = useState<User[]>([]);
+    const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+    const [searchQuery, setSearchQuery] = useState('');
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [formData, setFormData] = useState({ username: '', email: '', password: '', role: 'user', is_active: true });
-
-    const fetchUsers = async () => {
-        const token = localStorage.getItem('token');
-        try {
-            const response = await axios.get('/api/v1/users/', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setUsers(response.data);
-        } catch (error) {
-            console.error('Failed to fetch users', error);
-        }
-    };
+    const { toast } = useToast();
 
     useEffect(() => {
         fetchUsers();
     }, []);
+
+    useEffect(() => {
+        if (!searchQuery.trim()) {
+            setFilteredUsers(users);
+        } else {
+            handleSearch();
+        }
+    }, [searchQuery, users]);
+
+    const fetchUsers = async () => {
+        const token = localStorage.getItem('token');
+        try {
+            const response = await axios.get<User[]>('/api/v1/users/', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setUsers(response.data);
+            setFilteredUsers(response.data);
+        } catch (error) {
+            toast({
+                variant: 'error',
+                title: '加载失败',
+                description: '无法加载用户列表',
+            });
+        }
+    };
+
+    const handleSearch = async () => {
+        if (!searchQuery.trim()) {
+            setFilteredUsers(users);
+            return;
+        }
+
+        const token = localStorage.getItem('token');
+        try {
+            const response = await axios.get<User[]>(`/api/v1/users/search?q=${searchQuery}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setFilteredUsers(response.data);
+        } catch (error) {
+            toast({
+                variant: 'error',
+                title: '搜索失败',
+            });
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -54,8 +92,57 @@ export default function AdminUsersPage() {
             setIsDialogOpen(false);
             setFormData({ username: '', email: '', password: '', role: 'user', is_active: true });
             fetchUsers();
+            toast({
+                variant: 'success',
+                title: '创建成功',
+            });
         } catch (error) {
-            console.error('Failed to create user', error);
+            toast({
+                variant: 'error',
+                title: '创建失败',
+            });
+        }
+    };
+
+    const handleToggleActive = async (userId: number) => {
+        const token = localStorage.getItem('token');
+        try {
+            await axios.put(`/api/v1/users/${userId}/toggle-active`, {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            fetchUsers();
+            toast({
+                variant: 'success',
+                title: '状态已更新',
+            });
+        } catch (error: any) {
+            toast({
+                variant: 'error',
+                title: '操作失败',
+                description: error.response?.data?.detail || '无法更新用户状态',
+            });
+        }
+    };
+
+    const handleDelete = async (userId: number, username: string) => {
+        if (!confirm(`确定要注销用户 "${username}" 吗？此操作会将用户设置为不活跃状态。`)) return;
+
+        const token = localStorage.getItem('token');
+        try {
+            await axios.delete(`/api/v1/users/${userId}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            fetchUsers();
+            toast({
+                variant: 'success',
+                title: '用户已注销',
+            });
+        } catch (error: any) {
+            toast({
+                variant: 'error',
+                title: '注销失败',
+                description: error.response?.data?.detail || '无法注销用户',
+            });
         }
     };
 
@@ -65,7 +152,10 @@ export default function AdminUsersPage() {
                 <h1 className="text-3xl font-bold tracking-tight">用户管理</h1>
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                     <DialogTrigger asChild>
-                        <Button>添加用户</Button>
+                        <Button>
+                            <UserPlus className="w-4 h-4 mr-2" />
+                            添加用户
+                        </Button>
                     </DialogTrigger>
                     <DialogContent>
                         <DialogHeader>
@@ -102,7 +192,7 @@ export default function AdminUsersPage() {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="role">角色</Label>
+                                <Label htmlFor="role">权限</Label>
                                 <select
                                     id="role"
                                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -129,6 +219,20 @@ export default function AdminUsersPage() {
                 </Dialog>
             </div>
 
+            {/* 搜索栏 */}
+            <div className="flex gap-2">
+                <div className="relative flex-1 max-w-sm">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                        placeholder="按 ID 或用户名搜索..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-9"
+                    />
+                </div>
+            </div>
+
+            {/* 用户表格 */}
             <div className="bg-card border rounded-lg overflow-hidden">
                 <table className="w-full text-sm text-left">
                     <thead className="bg-muted text-muted-foreground">
@@ -136,31 +240,76 @@ export default function AdminUsersPage() {
                             <th className="p-4 font-medium">ID</th>
                             <th className="p-4 font-medium">用户名</th>
                             <th className="p-4 font-medium">邮箱</th>
-                            <th className="p-4 font-medium">角色</th>
+                            <th className="p-4 font-medium">权限</th>
                             <th className="p-4 font-medium">状态</th>
                             <th className="p-4 font-medium">创建时间</th>
+                            <th className="p-4 font-medium">操作</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y">
-                        {users.map((user) => (
-                            <tr key={user.id} className="hover:bg-accent/50">
-                                <td className="p-4">{user.id}</td>
-                                <td className="p-4 font-medium">{user.username}</td>
-                                <td className="p-4">{user.email}</td>
-                                <td className="p-4 capitalize">{user.role}</td>
-                                <td className="p-4">
-                                    <span className={cn(
-                                        "px-2 py-1 rounded text-xs",
-                                        user.is_active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-                                    )}>
-                                        {user.is_active ? '启用' : '未启用'}
-                                    </span>
-                                </td>
-                                <td className="p-4 text-muted-foreground">
-                                    {new Date(user.created_at).toLocaleDateString()}
+                        {filteredUsers.length === 0 ? (
+                            <tr>
+                                <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                                    {searchQuery ? '未找到匹配的用户' : '暂无用户'}
                                 </td>
                             </tr>
-                        ))}
+                        ) : (
+                            filteredUsers.map((user) => (
+                                <tr key={user.id} className="hover:bg-accent/50">
+                                    <td className="p-4">{user.id}</td>
+                                    <td className="p-4 font-medium">{user.username}</td>
+                                    <td className="p-4">{user.email}</td>
+                                    <td className="p-4">
+                                        <span className={cn(
+                                            "px-2 py-1 rounded text-xs font-medium",
+                                            user.role === 'admin'
+                                                ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-100"
+                                                : "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-100"
+                                        )}>
+                                            {user.role === 'admin' ? '管理员' : '用户'}
+                                        </span>
+                                    </td>
+                                    <td className="p-4">
+                                        <span className={cn(
+                                            "px-2 py-1 rounded text-xs font-medium",
+                                            user.is_active
+                                                ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-100"
+                                                : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-100"
+                                        )}>
+                                            {user.is_active ? '启用' : '禁用'}
+                                        </span>
+                                    </td>
+                                    <td className="p-4 text-muted-foreground">
+                                        {new Date(user.created_at).toLocaleDateString()}
+                                    </td>
+                                    <td className="p-4">
+                                        <div className="flex gap-2">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => handleToggleActive(user.id)}
+                                                title={user.is_active ? '禁用用户' : '启用用户'}
+                                            >
+                                                {user.is_active ? (
+                                                    <Ban className="w-4 h-4 text-orange-600" />
+                                                ) : (
+                                                    <UserCheck className="w-4 h-4 text-green-600" />
+                                                )}
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => handleDelete(user.id, user.username)}
+                                                className="text-destructive"
+                                                title="注销用户"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </Button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
                     </tbody>
                 </table>
             </div>

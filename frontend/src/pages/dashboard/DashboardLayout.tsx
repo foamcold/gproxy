@@ -29,9 +29,11 @@ export default function DashboardLayout() {
         { icon: FileJson, label: '预设', path: '/dashboard/presets' },
         { icon: Regex, label: '正则规则', path: '/dashboard/regex' },
         { icon: Key, label: '密钥', path: '/dashboard/keys' },
+        { icon: Key, label: '官方密钥', path: '/dashboard/official-keys', adminOnly: true },
         { icon: ScrollText, label: '日志', path: '/dashboard/logs' },
         { icon: Settings, label: '设置', path: '/dashboard/settings' },
         { icon: Users, label: '用户', path: '/dashboard/users', adminOnly: true },
+        { icon: Settings, label: '系统', path: '/dashboard/system', adminOnly: true },
     ];
 
     return (

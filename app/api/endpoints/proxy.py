@@ -70,11 +70,67 @@ async def chat_completions(
         regex_rules = result.scalars().all()
 
     # 4. Apply Presets (Inject into messages)
-    # TODO: Implement complex preset injection logic (sorting, system/user/ai roles)
-    # For now, simple injection of system prompt if preset has it
-    if presets:
-        # This is a simplified implementation. Real one needs to parse preset content JSON
-        pass
+    if presets and openai_request.messages:
+        for preset in presets:
+            try:
+                preset_content = json.loads(preset.content)
+                items = preset_content.get('items', [])
+                
+                if not items:
+                    continue
+                
+                # 排序条目
+                sorted_items = sorted(items, key=lambda x: x.get('order', 0))
+                
+                # 构建新的消息列表
+                processed_messages = []
+                original_messages = list(openai_request.messages)
+                
+                # 分离最后一条用户消息和历史消息
+                last_user_message = None
+                history_messages = []
+                
+                for msg in reversed(original_messages):
+                    if msg.role == 'user' and last_user_message is None:
+                        last_user_message = msg
+                    else:
+                        history_messages.insert(0, msg)
+                
+                for item in sorted_items:
+                    item_type = item.get('type', 'normal')
+                    item_role = item.get('role', 'system')
+                    item_content = item.get('content', '')
+                    
+                    if item_type == 'normal':
+                        # 直接注入普通条目
+                        processed_messages.append({
+                            'role': item_role,
+                            'content': item_content
+                        })
+                    elif item_type == 'user_input':
+                        # 注入最后一条用户消息
+                        if last_user_message:
+                            processed_messages.append({
+                                'role': last_user_message.role,
+                                'content': last_user_message.content
+                            })
+                    elif item_type == 'history':
+                        # 注入历史消息
+                        for hist_msg in history_messages:
+                            processed_messages.append({
+                                'role': hist_msg.role,
+                                'content': hist_msg.content if isinstance(hist_msg.content, str) else str(hist_msg.content)
+                            })
+                
+                # 如果处理后有消息，替换原始消息
+                if processed_messages:
+                    from app.schemas.openai import Message
+                    openai_request.messages = [Message(role=msg['role'], content=msg['content']) for msg in processed_messages]
+                    
+            except Exception as e:
+                # 如果预设解析失败，跳过该预设
+                print(f"预设解析失败: {e}")
+                continue
 
     # 5. Variable Processing
     # Apply variables to all string content in messages
