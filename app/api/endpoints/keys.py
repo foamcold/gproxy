@@ -117,7 +117,7 @@ async def create_exclusive_key(
         user_id=current_user.id,
         is_active=key_in.is_active,
         preset_id=key_in.preset_id,
-        regex_id=key_in.regex_id,
+        enable_regex=key_in.enable_regex,
     )
     db.add(key)
     await db.commit()

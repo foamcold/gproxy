@@ -31,7 +31,7 @@ interface ExclusiveKey {
     name: string;
     is_active: boolean;
     preset_id: number | null;
-    regex_id: number | null;
+    enable_regex: boolean;
 }
 
 interface OfficialKey {
@@ -70,7 +70,7 @@ export default function KeysPage() {
         name: '',
         is_active: true,
         preset_id: 'none',
-        regex_id: 'none'
+        enable_regex: false
     });
 
     const [isOfficialDialogOpen, setIsOfficialDialogOpen] = useState(false);
@@ -84,17 +84,15 @@ export default function KeysPage() {
         const headers = { Authorization: `Bearer ${token}` };
 
         try {
-            const [exRes, offRes, preRes, regRes] = await Promise.all([
+            const [exRes, offRes, preRes] = await Promise.all([
                 axios.get<ExclusiveKey[]>(`${API_BASE_URL}/keys/exclusive`, { headers }),
                 axios.get<OfficialKey[]>(`${API_BASE_URL}/keys/official`, { headers }),
                 axios.get<Preset[]>(`${API_BASE_URL}/presets/`, { headers }),
-                axios.get<RegexRule[]>(`${API_BASE_URL}/regex/`, { headers })
             ]);
 
             setExclusiveKeys(exRes.data);
             setOfficialKeys(offRes.data);
             setPresets(preRes.data);
-            setRegexRules(regRes.data);
         } catch (error) {
             console.error('Failed to fetch data', error);
             toast({ variant: 'error', title: '加载数据失败' });
@@ -113,7 +111,7 @@ export default function KeysPage() {
                 name: key.name || '',
                 is_active: key.is_active,
                 preset_id: key.preset_id?.toString() || 'none',
-                regex_id: key.regex_id?.toString() || 'none'
+                enable_regex: key.enable_regex || false
             });
         } else {
             setEditingKey(null);
@@ -121,7 +119,7 @@ export default function KeysPage() {
                 name: '',
                 is_active: true,
                 preset_id: 'none',
-                regex_id: 'none'
+                enable_regex: false
             });
         }
         setIsExclusiveDialogOpen(true);
@@ -136,7 +134,7 @@ export default function KeysPage() {
             name: exclusiveForm.name,
             is_active: exclusiveForm.is_active,
             preset_id: exclusiveForm.preset_id === 'none' ? null : parseInt(exclusiveForm.preset_id),
-            regex_id: exclusiveForm.regex_id === 'none' ? null : parseInt(exclusiveForm.regex_id)
+            enable_regex: exclusiveForm.enable_regex
         };
 
         try {
@@ -225,8 +223,6 @@ export default function KeysPage() {
     );
 
     const getPresetName = (id: number | null) => presets.find(p => p.id === id)?.name || '-';
-    const getRegexName = (id: number | null) => regexRules.find(r => r.id === id)?.name || '-';
-
     return (
         <div className="space-y-6">
             <div>
@@ -268,7 +264,7 @@ export default function KeysPage() {
                                         <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">名称</th>
                                         <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Key</th>
                                         <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">绑定预设</th>
-                                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">绑定正则</th>
+                                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">启用正则</th>
                                         <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">状态</th>
                                         <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">操作</th>
                                     </tr>
@@ -295,7 +291,7 @@ export default function KeysPage() {
                                                     </div>
                                                 </td>
                                                 <td className="p-4 align-middle">{getPresetName(key.preset_id)}</td>
-                                                <td className="p-4 align-middle">{getRegexName(key.regex_id)}</td>
+                                                <td className="p-4 align-middle">{key.enable_regex ? "是" : "否"}</td>
                                                 <td className="p-4 align-middle">
                                                     <div className="flex items-center gap-2">
                                                         <div className={cn("w-2 h-2 rounded-full", key.is_active ? "bg-green-500" : "bg-red-500")} />
@@ -352,22 +348,13 @@ export default function KeysPage() {
                                         </SelectContent>
                                     </Select>
                                 </div>
-                                <div className="space-y-2">
-                                    <Label>绑定正则</Label>
-                                    <Select
-                                        value={exclusiveForm.regex_id}
-                                        onValueChange={(val) => setExclusiveForm({ ...exclusiveForm, regex_id: val })}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="选择正则..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="none">不使用正则</SelectItem>
-                                            {regexRules.map(r => (
-                                                <SelectItem key={r.id} value={r.id.toString()}>{r.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                <div className="flex items-center justify-between">
+                                    <Label htmlFor="ex-regex">启用正则</Label>
+                                    <Switch
+                                        id="ex-regex"
+                                        checked={exclusiveForm.enable_regex}
+                                        onCheckedChange={(checked) => setExclusiveForm({ ...exclusiveForm, enable_regex: checked })}
+                                    />
                                 </div>
                                 <div className="flex items-center justify-between">
                                     <Label htmlFor="ex-active">启用</Label>

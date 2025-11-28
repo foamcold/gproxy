@@ -30,7 +30,7 @@ class ExclusiveKeyBase(BaseModel):
     name: Optional[str] = None
     is_active: Optional[bool] = True
     preset_id: Optional[int] = None
-    regex_id: Optional[int] = None
+    enable_regex: Optional[bool] = False
 
 class ExclusiveKeyCreate(ExclusiveKeyBase):
     pass
@@ -39,7 +39,7 @@ class ExclusiveKeyUpdate(BaseModel):
     name: Optional[str] = None
     is_active: Optional[bool] = None
     preset_id: Optional[int] = None
-    regex_id: Optional[int] = None
+    enable_regex: Optional[bool] = None
 
 class ExclusiveKey(ExclusiveKeyBase):
     id: int
@@ -47,7 +47,7 @@ class ExclusiveKey(ExclusiveKeyBase):
     user_id: int
     created_at: datetime
     preset_id: Optional[int] = None
-    regex_id: Optional[int] = None
+    enable_regex: Optional[bool] = False
 
     class Config:
         from_attributes = True

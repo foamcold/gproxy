@@ -162,11 +162,9 @@ async def chat_completions(
                 presets.append(preset)
         
         # Load Linked Regex Rule
-        if exclusive_key.regex_id:
-            result = await db.execute(select(RegexRule).filter(RegexRule.id == exclusive_key.regex_id))
-            regex_rule = result.scalars().first()
-            if regex_rule:
-                regex_rules.append(regex_rule)
+        if exclusive_key.enable_regex:
+            result = await db.execute(select(RegexRule).filter(RegexRule.is_active == True))
+            regex_rules = result.scalars().all()
 
     # 4. Apply Presets (Inject into messages)
     if presets and openai_request.messages:
