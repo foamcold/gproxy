@@ -18,6 +18,11 @@ export function PresetItemEditor({ preset, onUpdatePreset }: PresetItemEditorPro
     const [editingItem, setEditingItem] = useState<PresetItem | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
 
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor)
+    );
+
     if (!preset) {
         return (
             <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -29,10 +34,6 @@ export function PresetItemEditor({ preset, onUpdatePreset }: PresetItemEditorPro
     const content = presetService.parsePresetContent(preset.content);
     const items = content.items || [];
 
-    const sensors = useSensors(
-        useSensor(PointerSensor),
-        useSensor(KeyboardSensor)
-    );
 
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
