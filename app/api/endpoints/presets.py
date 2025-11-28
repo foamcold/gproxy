@@ -79,13 +79,18 @@ async def update_preset(
     if not preset:
         raise HTTPException(status_code=404, detail="Preset not found")
     
-    preset.name = preset_in.name
-    preset.is_active = preset_in.is_active
-    preset.sort_order = preset_in.sort_order
+    preset_data = preset_in.dict(exclude_unset=True)
+    for key, value in preset_data.items():
+        if value is not None:
+            setattr(preset, key, value)
     
     db.add(preset)
     await db.commit()
-    await db.refresh(preset)
+
+    # Re-fetch the preset with items loaded to satisfy the response model
+    query = select(Preset).options(selectinload(Preset.items)).filter(Preset.id == preset_id)
+    result = await db.execute(query)
+    preset = result.scalars().unique().first()
     return preset
 
 @router.delete("/{preset_id}", response_model=PresetSchema)

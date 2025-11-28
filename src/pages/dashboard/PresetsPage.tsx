@@ -86,6 +86,7 @@ export default function PresetsPage() {
                 name: '新建预设',
                 is_active: true,
                 sort_order: presets.length,
+                content: '',
             });
             const newPreset = { ...newPresetData, items: [] };
             setPresets([...presets, newPreset]);
@@ -174,6 +175,7 @@ export default function PresetsPage() {
                 name: `${selectedPreset.name} (副本)`,
                 is_active: selectedPreset.is_active,
                 sort_order: presets.length,
+                content: selectedPreset.content || '',
             });
             setPresets([...presets, newPreset]);
             setSelectedPreset(newPreset);
