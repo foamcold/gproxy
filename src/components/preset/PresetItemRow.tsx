@@ -53,7 +53,7 @@ export function PresetItemRow({ item, onEdit, onDelete, onDuplicate, onToggle }:
             ref={setNodeRef}
             style={style}
             className={cn(
-                "flex items-center gap-3 p-4 rounded-md border bg-card hover:shadow-md transition-all group",
+                "flex items-center gap-3 p-4 rounded-md border bg-card hover:shadow-md transition-colors group",
                 isDragging && "shadow-lg ring-2 ring-primary"
             )}
         >
@@ -95,7 +95,7 @@ export function PresetItemRow({ item, onEdit, onDelete, onDuplicate, onToggle }:
                     onClick={(e) => e.stopPropagation()}
                 />
 
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
                     <Button
                         variant="ghost"
                         size="icon"

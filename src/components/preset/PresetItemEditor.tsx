@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Plus } from 'lucide-react';
@@ -18,6 +18,16 @@ export function PresetItemEditor({ preset, onUpdatePreset }: PresetItemEditorPro
     const [editingItem, setEditingItem] = useState<PresetItem | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [localItems, setLocalItems] = useState<PresetItem[]>([]);
+    const itemsRef = useRef(localItems);
+    itemsRef.current = localItems;
+
+    // 创建一个防抖函数来延迟更新
+    const debouncedUpdate = useCallback(
+        debounce((id: number, content: string) => {
+            onUpdatePreset(id, content);
+        }, 500),
+        [onUpdatePreset]
+    );
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -34,6 +44,15 @@ export function PresetItemEditor({ preset, onUpdatePreset }: PresetItemEditorPro
         }
     }, [preset]);
 
+    // 防抖函数
+    function debounce<T extends (...args: any[]) => void>(func: T, delay: number) {
+        let timeoutId: ReturnType<typeof setTimeout>;
+        return function (this: ThisParameterType<T>, ...args: Parameters<T>) {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => func.apply(this, args), delay);
+        } as T;
+    }
+
     if (!preset) {
         return (
             <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -46,7 +65,7 @@ export function PresetItemEditor({ preset, onUpdatePreset }: PresetItemEditorPro
     const updateItems = (newItems: PresetItem[]) => {
         setLocalItems(newItems);
         const newContent: PresetContent = { items: newItems };
-        onUpdatePreset(preset.id, presetService.stringifyPresetContent(newContent));
+        debouncedUpdate(preset.id, presetService.stringifyPresetContent(newContent));
     };
 
     const handleDragEnd = (event: DragEndEvent) => {
@@ -61,7 +80,12 @@ export function PresetItemEditor({ preset, onUpdatePreset }: PresetItemEditorPro
                 order: index,
             }));
 
-            updateItems(newItems);
+            // 只更新本地状态以获得即时反馈
+            setLocalItems(newItems);
+
+            // 使用防抖函数进行后台更新
+            const newContent: PresetContent = { items: newItems };
+            debouncedUpdate(preset.id, presetService.stringifyPresetContent(newContent));
         }
     };
 

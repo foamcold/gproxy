@@ -59,7 +59,7 @@ export function PresetListItem({
             className={cn(
                 "flex items-center gap-2 p-3 rounded-md border transition-colors cursor-pointer group",
                 isSelected ? "bg-primary/10 border-primary" : "hover:bg-accent/50",
-                isDragging && "shadow-lg"
+                isDragging && "shadow-lg ring-2 ring-primary"
             )}
             onClick={onSelect}
         >
@@ -96,7 +96,7 @@ export function PresetListItem({
             </div>
 
             {/* 操作按钮 */}
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
                 <Switch
                     checked={preset.is_active}
                     onCheckedChange={(checked) => onToggleActive(preset.id, checked)}
