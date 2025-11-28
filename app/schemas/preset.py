@@ -7,6 +7,7 @@ class PresetBase(BaseModel):
     name: str
     is_active: Optional[bool] = True
     sort_order: Optional[int] = 0
+    content: Optional[str] = None
 
 class PresetCreate(PresetBase):
     pass
@@ -21,6 +22,7 @@ class Preset(PresetBase):
     created_at: datetime
     updated_at: datetime
     items: List[PresetItem] = []
+    content: Optional[str] = None
 
     class Config:
         from_attributes = True

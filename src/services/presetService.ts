@@ -20,12 +20,14 @@ export interface Preset {
     sort_order: number;
     created_at?: string;
     items: PresetItem[];
+    content?: string;
 }
 
 export interface PresetCreate {
     name: string;
     is_active: boolean;
     sort_order: number;
+    content?: string;
 }
 
 export interface PresetUpdate extends PresetCreate { }

@@ -9,6 +9,7 @@ class Preset(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"))
+    content = Column(Text, nullable=True) # 添加 content 字段
     is_active = Column(Boolean, default=True)
     sort_order = Column(Integer, default=0)
     creator_username = Column(String, nullable=True)  # 创建者用户名（用于溯源）

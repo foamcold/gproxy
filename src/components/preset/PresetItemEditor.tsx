@@ -119,7 +119,7 @@ export function PresetItemEditor({ preset, onItemsChange }: PresetItemEditorProp
     };
 
     const handleExportItems = () => {
-        const exportData = localItems.map(item => ({
+        const presetItems = localItems.map(item => ({
             name: item.name,
             creator_username: item.creator_username || 'unknown',
             created_at: item.created_at,
@@ -129,6 +129,19 @@ export function PresetItemEditor({ preset, onItemsChange }: PresetItemEditorProp
             type: item.type,
             content: item.content,
         }));
+
+        const exportData = {
+            name: preset.name,
+            type: 'preset',
+            creator_username: (preset as any).creator_username || 'unknown',
+            created_at: (preset as any).created_at || new Date().toISOString(),
+            updated_at: (preset as any).updated_at || new Date().toISOString(),
+            enabled: preset.is_active,
+            content: {
+                preset: presetItems,
+                regex: [], // Intentionally empty as we are only exporting items
+            }
+        };
 
         exportToJSON(exportData, `gproxy-preset-items-${preset.name}`);
         toast({
@@ -140,19 +153,26 @@ export function PresetItemEditor({ preset, onItemsChange }: PresetItemEditorProp
 
     const handleImportItems = async () => {
         try {
-            const importedData = await importFromJSON<any[]>();
-            if (!Array.isArray(importedData)) {
-                throw new Error('导入文件格式不正确，需要一个数组');
+            const importedData = await importFromJSON<any>();
+            let itemsToImport = [];
+
+            // Handle both array of items and full preset object
+            if (Array.isArray(importedData)) {
+                itemsToImport = importedData;
+            } else if (importedData.type === 'preset' && importedData.content && Array.isArray(importedData.content.preset)) {
+                itemsToImport = importedData.content.preset;
+            } else {
+                throw new Error('文件格式不兼容');
             }
 
-            for (const item of importedData) {
+            for (const item of itemsToImport) {
                 await presetService.createPresetItem(preset.id, {
                     name: item.name,
                     role: item.role,
                     type: item.type,
                     content: item.content,
                     enabled: item.enabled,
-                    sort_order: localItems.length + importedData.indexOf(item),
+                    sort_order: localItems.length + itemsToImport.indexOf(item),
                 });
             }
 
@@ -160,7 +180,7 @@ export function PresetItemEditor({ preset, onItemsChange }: PresetItemEditorProp
             toast({
                 variant: 'success',
                 title: '导入成功',
-                description: `成功导入 ${importedData.length} 个条目`,
+                description: `成功导入 ${itemsToImport.length} 个条目`,
             });
         } catch (error) {
             toast({

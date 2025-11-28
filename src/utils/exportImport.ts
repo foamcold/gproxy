@@ -23,7 +23,7 @@ export function exportToJSON<T>(data: T, filename: string): void {
  * 从JSON文件导入数据
  * @returns Promise包含解析后的数据
  */
-export function importFromJSON<T>(): Promise<T> {
+export function importFromJSON<T>(returnAsText?: boolean): Promise<T | string> {
     return new Promise((resolve, reject) => {
         const input = document.createElement('input');
         input.type = 'file';
@@ -38,8 +38,12 @@ export function importFromJSON<T>(): Promise<T> {
 
             try {
                 const text = await file.text();
-                const data = JSON.parse(text);
-                resolve(data as T);
+                if (returnAsText) {
+                    resolve(text);
+                } else {
+                    const data = JSON.parse(text);
+                    resolve(data as T);
+                }
             } catch (error) {
                 reject(new Error('文件解析失败'));
             }

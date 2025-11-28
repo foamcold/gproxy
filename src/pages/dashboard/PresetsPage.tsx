@@ -259,7 +259,9 @@ export default function PresetsPage() {
     // 导入预设
     const handleImport = async () => {
         try {
-            const importedData = await importFromJSON<any>();
+            const importedRaw = await importFromJSON<string>(true) as string; // Import as raw text
+            const importedData = JSON.parse(importedRaw);
+
 
             // Case 1: Import a full preset
             if (importedData.type === 'preset') {
@@ -267,6 +269,7 @@ export default function PresetsPage() {
                     name: importedData.name,
                     is_active: importedData.enabled,
                     sort_order: presets.length,
+                    content: importedRaw, // Pass the raw JSON content
                 });
 
                 if (importedData.content && importedData.content.preset) {
@@ -302,34 +305,17 @@ export default function PresetsPage() {
             }
             // Case 2: Import regex rules into the selected preset
             else {
-                if (!selectedPreset) {
-                    toast({
-                        variant: 'error',
-                        title: '导入失败',
-                        description: '请先选择一个预设以导入正则规则',
-                    });
-                    return;
-                }
-
                 const rulesToImport = Array.isArray(importedData) ? importedData : [importedData];
                 if (rulesToImport.every(r => r.type === 'regex' && r.content)) {
-                    for (const regexRule of rulesToImport) {
-                        await presetRegexService.createPresetRegexRule(selectedPreset.id, {
-                            name: regexRule.name,
-                            pattern: regexRule.content.pattern,
-                            replacement: regexRule.content.replacement,
-                            type: regexRule.content.type,
-                            is_active: regexRule.enabled,
-                            sort_order: 999, // Appended to the end
-                        });
-                    }
+                    // This is a regex-only file. Guide the user to the correct import location.
                     toast({
-                        variant: 'success',
-                        title: '导入成功',
-                        description: `成功向 "${selectedPreset.name}" 导入 ${rulesToImport.length} 条正则规则`,
+                        variant: 'info',
+                        title: '检测到正则规则文件',
+                        description: '请在预设的“正则管理”选项卡中导入此文件。',
+                        duration: 5000,
                     });
                 } else {
-                    throw new Error('文件格式不兼容。请选择一个预设文件或纯正则规则文件。');
+                    throw new Error('文件格式不兼容。请选择一个预设文件。');
                 }
             }
 

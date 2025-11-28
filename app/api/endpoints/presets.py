@@ -43,11 +43,25 @@ async def create_preset(
         is_active=preset_in.is_active,
         sort_order=preset_in.sort_order,
         creator_username=current_user.username,  # 自动设置创建者用户名
+        content=preset_in.content,
     )
     db.add(preset)
     await db.commit()
     await db.refresh(preset)
-    return preset
+    
+    # 手动构建响应模型以避免验证错误
+    return PresetSchema(
+        id=preset.id,
+        name=preset.name,
+        is_active=preset.is_active,
+        sort_order=preset.sort_order,
+        user_id=preset.user_id,
+        creator_username=preset.creator_username,
+        created_at=preset.created_at,
+        updated_at=preset.updated_at,
+        content=preset.content,
+        items=[] # 新创建的预设还没有items
+    )
 
 @router.put("/{preset_id}", response_model=PresetSchema)
 async def update_preset(
