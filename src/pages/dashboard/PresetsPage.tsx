@@ -21,6 +21,7 @@ import {
     Download,
     Upload,
     Pencil,
+    ChevronDown,
 } from 'lucide-react';
 import {
     Dialog,
@@ -63,7 +64,7 @@ export default function PresetsPage() {
                     presetToSelect = updated;
                 }
             }
-            
+
             // Fallback to the first preset if no selection is determined yet
             if (!presetToSelect && sortedData.length > 0) {
                 presetToSelect = sortedData[0];
@@ -358,7 +359,7 @@ export default function PresetsPage() {
             {/* 功能工具栏 */}
             <div className="flex items-center gap-4 px-4 py-2 bg-card border rounded-lg mx-4 shadow-sm">
                 {/* 预设选择下拉框 */}
-                <div className="flex-1 max-w-xs">
+                <div className="flex-1 max-w-xs relative">
                     <Select
                         value={selectedPreset?.id.toString()}
                         onValueChange={(val) => {
@@ -366,34 +367,116 @@ export default function PresetsPage() {
                             if (preset) setSelectedPreset(preset);
                         }}
                     >
-                        <SelectTrigger>
+                        <SelectTrigger className="pr-2 [&>svg]:hidden">
                             <SelectValue placeholder="选择预设..." />
+                            {/* 下拉框内的重命名和删除按钮 */}
+                            {selectedPreset && (
+                                <div className="ml-auto flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            openRenameDialog();
+                                        }}
+                                        title="重命名选中的预设"
+                                    >
+                                        <Pencil className="w-3 h-3" />
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 text-destructive hover:text-destructive"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDelete();
+                                        }}
+                                        title="删除选中的预设"
+                                    >
+                                        <Trash2 className="w-3 h-3" />
+                                    </Button>
+                                    {/* 倒三角箭头 */}
+                                    <div className="flex items-center">
+                                        <ChevronDown className="h-4 w-4 opacity-50" />
+                                    </div>
+                                </div>
+                            )}
+                            {/* 没有选中预设时只显示箭头 */}
+                            {!selectedPreset && (
+                                <div className="ml-auto flex items-center">
+                                    <ChevronDown className="h-4 w-4 opacity-50" />
+                                </div>
+                            )}
                         </SelectTrigger>
                         <SelectContent>
                             {presets.map((preset) => (
-                                <SelectItem key={preset.id} value={preset.id.toString()}>
-                                    {preset.name}
-                                </SelectItem>
+                                <div key={preset.id} className="relative group">
+                                    <SelectItem value={preset.id.toString()} className="pr-16">
+                                        {preset.name}
+                                    </SelectItem>
+                                    {/* 列表项右侧的重命名和删除按钮 */}
+                                    <div
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity pointer-events-auto"
+                                        onClick={(e) => e.stopPropagation()}
+                                        onPointerDown={(e) => e.stopPropagation()}
+                                    >
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                e.preventDefault();
+                                                setSelectedPreset(preset);
+                                                setRenameName(preset.name);
+                                                setIsRenameDialogOpen(true);
+                                            }}
+                                            onPointerDown={(e) => e.stopPropagation()}
+                                            title="重命名"
+                                        >
+                                            <Pencil className="w-3 h-3" />
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6 text-destructive hover:text-destructive"
+                                            onClick={async (e) => {
+                                                e.stopPropagation();
+                                                e.preventDefault();
+                                                if (confirm(`确定要删除预设 "${preset.name}" 吗？`)) {
+                                                    try {
+                                                        await presetService.deletePreset(preset.id);
+                                                        const newPresets = presets.filter((p) => p.id !== preset.id);
+                                                        setPresets(newPresets);
+                                                        if (selectedPreset?.id === preset.id) {
+                                                            setSelectedPreset(newPresets.length > 0 ? newPresets[0] : null);
+                                                        }
+                                                        toast({ variant: 'success', title: '删除成功' });
+                                                    } catch (error) {
+                                                        toast({ variant: 'error', title: '删除失败' });
+                                                    }
+                                                }
+                                            }}
+                                            onPointerDown={(e) => e.stopPropagation()}
+                                            title="删除"
+                                        >
+                                            <Trash2 className="w-3 h-3" />
+                                        </Button>
+                                    </div>
+                                </div>
                             ))}
                         </SelectContent>
                     </Select>
                 </div>
 
-
                 {/* 操作按钮组 */}
-                <div className="flex items-center gap-1 ml-auto">
-                    <Button variant="ghost" size="icon" onClick={openRenameDialog} disabled={!selectedPreset} title="重命名">
-                        <Pencil className="w-4 h-4" />
-                    </Button>
-                    <div className="w-px h-4 bg-border mx-1" />
+                <div className="flex items-center gap-1">
                     <Button variant="ghost" size="icon" onClick={handleCreatePreset} title="新建预设">
                         <Plus className="w-4 h-4" />
                     </Button>
                     <Button variant="ghost" size="icon" onClick={handleDuplicate} disabled={!selectedPreset} title="复制预设">
                         <Copy className="w-4 h-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={handleDelete} disabled={!selectedPreset} className="text-destructive hover:text-destructive" title="删除预设">
-                        <Trash2 className="w-4 h-4" />
                     </Button>
                     <div className="w-px h-4 bg-border mx-1" />
                     <Button variant="ghost" size="icon" onClick={handleExport} disabled={!selectedPreset} title="导出选中预设">
