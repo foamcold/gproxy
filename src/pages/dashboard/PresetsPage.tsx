@@ -356,12 +356,17 @@ export default function PresetsPage() {
     return (
         <div className="flex flex-col h-[calc(100vh-8rem)] gap-4">
             {/* 顶部栏：标题 */}
-            <div className="flex items-center justify-between px-4">
-                <h1 className="text-3xl font-bold tracking-tight">预设</h1>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">预设</h1>
+                    <p className="text-sm text-muted-foreground mt-1">
+                        管理和编辑您的 AI 提示词预设
+                    </p>
+                </div>
             </div>
 
             {/* 功能工具栏 */}
-            <div className="flex items-center gap-4 px-4 py-2 bg-card border rounded-lg mx-4 shadow-sm">
+            <div className="flex items-center gap-4 px-4 py-2 bg-card border rounded-lg shadow-sm">
                 {/* 预设选择下拉框 */}
                 <div className="flex-1 max-w-xs relative">
                     <Select
@@ -492,7 +497,7 @@ export default function PresetsPage() {
             </div>
 
             {/* 主内容区域 */}
-            <div className="flex-1 border rounded-lg bg-card overflow-hidden mx-4 mb-4">
+            <div className="flex-1 border rounded-lg bg-card overflow-hidden">
                 {!selectedPreset ? (
                     <div className="flex items-center justify-center h-full text-muted-foreground">
                         <p>请选择或创建一个预设</p>

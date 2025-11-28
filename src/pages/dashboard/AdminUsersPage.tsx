@@ -150,7 +150,12 @@ export default function AdminUsersPage() {
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold tracking-tight">用户管理</h1>
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">用户管理</h1>
+                    <p className="text-sm text-muted-foreground mt-1">
+                        管理系统用户权限和账号状态
+                    </p>
+                </div>
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                     <DialogTrigger asChild>
                         <Button>

@@ -53,7 +53,7 @@ export function PresetItemEditor({ preset, onItemsChange }: PresetItemEditorProp
         const newItem: Partial<PresetItem> = {
             role: 'system',
             type: 'normal',
-            name: '新建条目',
+            name: '新建消息',
             content: '',
             sort_order: localItems.length,
             enabled: true,
@@ -147,7 +147,7 @@ export function PresetItemEditor({ preset, onItemsChange }: PresetItemEditorProp
         toast({
             variant: 'success',
             title: '导出成功',
-            description: `成功导出 ${localItems.length} 个条目`,
+            description: `成功导出 ${localItems.length} 条消息`,
         });
     };
 
@@ -180,7 +180,7 @@ export function PresetItemEditor({ preset, onItemsChange }: PresetItemEditorProp
             toast({
                 variant: 'success',
                 title: '导入成功',
-                description: `成功导入 ${itemsToImport.length} 个条目`,
+                description: `成功导入 ${itemsToImport.length} 条消息`,
             });
         } catch (error) {
             toast({
@@ -197,9 +197,9 @@ export function PresetItemEditor({ preset, onItemsChange }: PresetItemEditorProp
             <div className="p-4 border-b">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h2 className="text-lg font-semibold">{preset.name}</h2>
-                        <p className="text-sm text-muted-foreground">
-                            {localItems.length} 个条目
+                        <h2 className="text-lg font-semibold">预设内部消息</h2>
+                        <p className="text-sm text-muted-foreground mt-1">
+                            当前共 {localItems.length} 条消息
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -211,9 +211,9 @@ export function PresetItemEditor({ preset, onItemsChange }: PresetItemEditorProp
                             <Upload className="w-4 h-4 mr-2" />
                             导入
                         </Button>
-                        <Button onClick={handleAddItem}>
+                        <Button onClick={handleAddItem} size="sm">
                             <Plus className="w-4 h-4 mr-2" />
-                            添加条目
+                            添加消息
                         </Button>
                     </div>
                 </div>
@@ -223,8 +223,8 @@ export function PresetItemEditor({ preset, onItemsChange }: PresetItemEditorProp
             <ScrollArea className="flex-1 p-4">
                 {localItems.length === 0 ? (
                     <div className="text-center text-muted-foreground py-8">
-                        <p className="text-sm">暂无条目</p>
-                        <p className="text-xs mt-1">点击"添加条目"创建第一个条目</p>
+                        <p className="text-sm">暂无消息</p>
+                        <p className="text-xs mt-1">点击"添加消息"创建第一条消息</p>
                     </div>
                 ) : (
                     <DndContext

@@ -46,7 +46,12 @@ export default function SettingsPage() {
 
     return (
         <div className="max-w-2xl space-y-8">
-            <h1 className="text-3xl font-bold tracking-tight">设置</h1>
+            <div>
+                <h1 className="text-3xl font-bold tracking-tight">设置</h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                    配置系统参数和个性化选项
+                </p>
+            </div>
 
             <div className="bg-card border rounded-lg p-6 space-y-6">
                 <h2 className="text-xl font-semibold">资料设置</h2>

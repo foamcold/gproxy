@@ -61,21 +61,21 @@ export function PresetItemEditDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle className="text-2xl">编辑预设条目</DialogTitle>
+                    <DialogTitle className="text-2xl">编辑预设消息</DialogTitle>
                     <DialogDescription>
-                        配置预设条目的角色、类型和内容。支持使用变量如 {'{'} roll 2d6 {'}'}, {'{'} random::A::B::C {'}'}
+                        配置预设消息的角色、类型和内容。支持使用变量如 {'{'} roll 2d6 {'}'}, {'{'} random::A::B::C {'}'}
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-6 py-4">
-                    {/* 条目名称 */}
+                    {/* 消息名称 */}
                     <div className="space-y-2">
-                        <Label htmlFor="name">条目名称</Label>
+                        <Label htmlFor="name">消息名称</Label>
                         <Input
                             id="name"
                             value={formData.name}
                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                            placeholder="为此条目命名..."
+                            placeholder="为此消息命名..."
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
                                     e.preventDefault();
@@ -151,7 +151,7 @@ export function PresetItemEditDialog({
                                 value={formData.content}
                                 onChange={(e) => setFormData({ ...formData, content: e.target.value })}
                                 className="min-h-[200px] font-mono text-sm"
-                                placeholder="输入条目内容，支持变量如 {{roll 2d6}}, {{random::A::B}}, {{#注释}}..."
+                                placeholder="输入消息内容，支持变量如 {{roll 2d6}}, {{random::A::B}}, {{#注释}}..."
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                                         e.preventDefault();
@@ -190,7 +190,7 @@ export function PresetItemEditDialog({
                             checked={formData.enabled !== false}
                             onCheckedChange={(checked) => setFormData({ ...formData, enabled: checked })}
                         />
-                        <Label htmlFor="item-enabled" className="cursor-pointer">启用此条目</Label>
+                        <Label htmlFor="item-enabled" className="cursor-pointer">启用此消息</Label>
                     </div>
                     <div className="flex gap-2">
                         <Button variant="outline" onClick={() => onOpenChange(false)}>

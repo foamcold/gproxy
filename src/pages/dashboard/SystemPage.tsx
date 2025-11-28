@@ -95,7 +95,12 @@ export default function SystemPage() {
     return (
         <div className="space-y-6 max-w-4xl">
             <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold tracking-tight">系统设置</h1>
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">系统设置</h1>
+                    <p className="text-sm text-muted-foreground mt-1">
+                        监控系统资源使用情况和环境变量
+                    </p>
+                </div>
                 <Button onClick={handleSave} disabled={saving}>
                     <Save className="w-4 h-4 mr-2" />
                     {saving ? '保存中...' : '保存设置'}

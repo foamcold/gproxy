@@ -59,7 +59,7 @@ function SortableRuleItem({ rule, onEdit, onDelete, onExportSingle, onToggle }: 
             ref={setNodeRef}
             style={style}
             className={cn(
-                "p-4 flex items-center gap-4 hover:bg-accent/50 transition-colors border-b last:border-b-0",
+                "flex items-center gap-3 p-4 rounded-md border bg-card hover:shadow-md transition-colors group",
                 isDragging && "shadow-lg ring-2 ring-primary"
             )}
         >
@@ -70,9 +70,14 @@ function SortableRuleItem({ rule, onEdit, onDelete, onExportSingle, onToggle }: 
             >
                 <GripVertical className="w-5 h-5 text-muted-foreground" />
             </div>
-            <div className="flex-1">
+            
+            <div className="flex-shrink-0 text-lg">
+                🔧
+            </div>
+
+            <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                    <span className="font-medium">{rule.name}</span>
+                    <span className="font-medium text-sm">{rule.name}</span>
                     <span className={cn(
                         "text-xs px-2 py-0.5 rounded font-medium",
                         rule.type === 'pre'
@@ -85,7 +90,7 @@ function SortableRuleItem({ rule, onEdit, onDelete, onExportSingle, onToggle }: 
                         <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded">未启用</span>
                     )}
                 </div>
-                <div className="text-sm font-mono text-muted-foreground">
+                <div className="text-sm font-mono text-muted-foreground truncate">
                     s/{rule.pattern}/{rule.replacement}/g
                 </div>
             </div>
@@ -95,15 +100,18 @@ function SortableRuleItem({ rule, onEdit, onDelete, onExportSingle, onToggle }: 
                     onCheckedChange={(checked) => onToggle(rule.id, checked)}
                     onClick={(e) => e.stopPropagation()}
                 />
-                <Button variant="ghost" size="icon" onClick={() => onExportSingle(rule)} title="导出此规则">
-                    <FileDown className="w-4 h-4" />
-                </Button>
-                <Button variant="ghost" size="icon" onClick={() => onEdit(rule)}>
-                    <Pencil className="w-4 h-4" />
-                </Button>
-                <Button variant="ghost" size="icon" className="text-destructive" onClick={() => onDelete(rule.id)}>
-                    <Trash2 className="w-4 h-4" />
-                </Button>
+                
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
+                    <Button variant="ghost" size="icon" onClick={() => onExportSingle(rule)} title="导出此规则">
+                        <FileDown className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => onEdit(rule)}>
+                        <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => onDelete(rule.id)}>
+                        <Trash2 className="w-4 h-4" />
+                    </Button>
+                </div>
             </div>
         </div>
     );
@@ -351,7 +359,12 @@ export function PresetRegexPage({ presetId }: PresetRegexPageProps) {
     return (
         <div className="space-y-4 h-full flex flex-col">
             <div className="flex justify-between items-center px-4 pt-4">
-                <h2 className="text-lg font-semibold">预设内部正则</h2>
+                <div>
+                    <h2 className="text-lg font-semibold">预设内部正则</h2>
+                    <p className="text-sm text-muted-foreground mt-1">
+                        当前共 {rules.length} 条规则
+                    </p>
+                </div>
                 <div className="flex items-center gap-2">
                     <Button onClick={handleExportRules} variant="outline" size="sm" disabled={rules.length === 0}>
                         <Download className="w-4 h-4 mr-2" />
@@ -366,7 +379,7 @@ export function PresetRegexPage({ presetId }: PresetRegexPageProps) {
                         if (!open) resetForm();
                     }}>
                         <DialogTrigger asChild>
-                            <Button>
+                            <Button size="sm">
                                 <Plus className="w-4 h-4 mr-2" />
                                 添加规则
                             </Button>
@@ -442,9 +455,9 @@ export function PresetRegexPage({ presetId }: PresetRegexPageProps) {
                 </div>
             </div>
 
-            <div className="flex-1 bg-card border rounded-lg overflow-hidden mx-4 mb-4">
+            <div className="flex-1 p-4 overflow-y-auto">
                 {rules.length === 0 ? (
-                    <div className="p-8 text-center text-muted-foreground">
+                    <div className="p-8 text-center text-muted-foreground bg-card border rounded-lg">
                         <p className="text-sm">暂无规则</p>
                         <p className="text-xs mt-1">点击"添加规则"创建第一条规则</p>
                     </div>
@@ -458,7 +471,7 @@ export function PresetRegexPage({ presetId }: PresetRegexPageProps) {
                             items={rules.map((r) => r.id)}
                             strategy={verticalListSortingStrategy}
                         >
-                            <div>
+                            <div className="space-y-2">
                                 {rules.map((rule) => (
                                     <SortableRuleItem
                                         key={rule.id}
