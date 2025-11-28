@@ -21,6 +21,7 @@ import {
     Download,
     Upload,
     Pencil,
+    ChevronDown,
 } from 'lucide-react';
 import {
     Dialog,
@@ -31,6 +32,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 
 export default function PresetsPage() {
     const [presets, setPresets] = useState<Preset[]>([]);
@@ -40,6 +42,9 @@ export default function PresetsPage() {
     // Rename Dialog State
     const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
     const [renameName, setRenameName] = useState('');
+
+    // Select Open State
+    const [isSelectOpen, setIsSelectOpen] = useState(false);
 
     const { toast } = useToast();
 
@@ -360,43 +365,16 @@ export default function PresetsPage() {
                 {/* 预设选择下拉框 */}
                 <div className="flex-1 max-w-xs relative">
                     <Select
+                        open={isSelectOpen}
+                        onOpenChange={setIsSelectOpen}
                         value={selectedPreset?.id.toString()}
                         onValueChange={(val) => {
                             const preset = presets.find(p => p.id === parseInt(val));
                             if (preset) setSelectedPreset(preset);
                         }}
                     >
-                        <SelectTrigger className="pr-2">
+                        <SelectTrigger className={selectedPreset ? "pr-24 [&>svg]:hidden" : "pr-8"}>
                             <SelectValue placeholder="选择预设..." />
-                            {/* 下拉框内的重命名和删除按钮 */}
-                            {selectedPreset && (
-                                <div className="ml-auto flex items-center gap-1 mr-6" onClick={(e) => e.stopPropagation()}>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-6 w-6"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            openRenameDialog();
-                                        }}
-                                        title="重命名选中的预设"
-                                    >
-                                        <Pencil className="w-3 h-3" />
-                                    </Button>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-6 w-6 text-destructive hover:text-destructive"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDelete();
-                                        }}
-                                        title="删除选中的预设"
-                                    >
-                                        <Trash2 className="w-3 h-3" />
-                                    </Button>
-                                </div>
-                            )}
                         </SelectTrigger>
                         <SelectContent>
                             {presets.map((preset) => (
@@ -457,6 +435,42 @@ export default function PresetsPage() {
                             ))}
                         </SelectContent>
                     </Select>
+
+                    {/* 下拉框内的重命名和删除按钮 - 移到 Select 外部并绝对定位 */}
+                    {selectedPreset && (
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 z-10 pointer-events-none">
+                            <ChevronDown
+                                className={cn(
+                                    "h-4 w-4 opacity-50 transition-transform duration-200",
+                                    isSelectOpen && "rotate-180"
+                                )}
+                            />
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 pointer-events-auto"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    openRenameDialog();
+                                }}
+                                title="重命名选中的预设"
+                            >
+                                <Pencil className="w-3 h-3" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-destructive hover:text-destructive pointer-events-auto"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDelete();
+                                }}
+                                title="删除选中的预设"
+                            >
+                                <Trash2 className="w-3 h-3" />
+                            </Button>
+                        </div>
+                    )}
                 </div>
 
                 {/* 操作按钮组 */}
