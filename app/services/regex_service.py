@@ -1,9 +1,10 @@
 import re
-from typing import List
+from typing import List, Union
 from app.models.regex import RegexRule
+from app.models.preset_regex import PresetRegexRule
 
 class RegexService:
-    def process(self, text: str, rules: List[RegexRule]) -> str:
+    def process(self, text: str, rules: List[Union[RegexRule, PresetRegexRule]]) -> str:
         for rule in rules:
             if not rule.is_active:
                 continue

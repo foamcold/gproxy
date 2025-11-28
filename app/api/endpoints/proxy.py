@@ -1,6 +1,7 @@
 import json
 import time
 import httpx
+import logging
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse, JSONResponse
@@ -11,7 +12,9 @@ from app.models.user import User
 from app.models.key import ExclusiveKey, OfficialKey
 from app.models.preset import Preset
 from app.models.regex import RegexRule
+from app.models.preset_regex import PresetRegexRule
 from app.models.log import Log
+from app.models.system_config import SystemConfig
 from app.schemas.openai import ChatCompletionRequest
 from app.services.gemini_service import gemini_service
 from app.services.converter import converter
@@ -20,6 +23,41 @@ from app.services.regex_service import regex_service
 from app.core.config import settings
 
 router = APIRouter()
+
+# Configure logger
+logger = logging.getLogger(__name__)
+current_log_level = "INFO"
+
+async def get_log_level(db: AsyncSession):
+    global current_log_level
+    result = await db.execute(select(SystemConfig))
+    config = result.scalars().first()
+    if config and config.log_level:
+        current_log_level = config.log_level
+        return config.log_level
+    current_log_level = "INFO"
+    return "INFO"
+
+def update_logger_level(level_name: str):
+    level = getattr(logging, level_name.upper(), logging.INFO)
+    logger.setLevel(level)
+    
+    # Ensure handler exists and set level for handler as well
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+    
+    for handler in logger.handlers:
+        handler.setLevel(level)
+
+def debug_log(message: str):
+    """
+    Wrapper for debug logging.
+    """
+    if current_log_level == "DEBUG":
+        logger.debug(message)
 
 
 @router.get("/v1/models")
@@ -127,6 +165,10 @@ async def chat_completions(
     db: AsyncSession = Depends(deps.get_db),
     key_info: tuple = Depends(deps.get_official_key_from_proxy)
 ):
+    # 0. Configure Logging Level
+    log_level = await get_log_level(db)
+    update_logger_level(log_level)
+
     # 1. Auth & Key Validation
     official_key, user = key_info
     
@@ -141,6 +183,9 @@ async def chat_completions(
         if client_key:
             result = await db.execute(select(ExclusiveKey).filter(ExclusiveKey.key == client_key))
             exclusive_key = result.scalars().first()
+            debug_log(f"处理专属 Key 请求. Key ID: {exclusive_key.id}, 名称: {exclusive_key.name}")
+    else:
+        debug_log(f"处理官方 Key 请求.")
 
     # 2. Parse Request
     try:
@@ -152,6 +197,7 @@ async def chat_completions(
     # 3. Load User Context (Presets, Regex) if user exists
     presets = []
     regex_rules = []
+    preset_regex_rules = []
     
     if exclusive_key:
         # Load Linked Preset
@@ -160,20 +206,49 @@ async def chat_completions(
             preset = result.scalars().first()
             if preset:
                 presets.append(preset)
+                # Load Linked Preset Regex Rules (Local Regex)
+                # Ensure they are loaded if preset exists
+                result = await db.execute(select(PresetRegexRule).filter(PresetRegexRule.preset_id == preset.id, PresetRegexRule.is_active == True))
+                preset_regex_rules = result.scalars().all()
+                debug_log(f"已加载 {len(preset_regex_rules)} 条局部正则规则 (预设: {preset.name})")
         
-        # Load Linked Regex Rule
+        # Load Linked Regex Rule (Global Regex)
         if exclusive_key.enable_regex:
             result = await db.execute(select(RegexRule).filter(RegexRule.is_active == True))
             regex_rules = result.scalars().all()
+            debug_log(f"已加载 {len(regex_rules)} 条全局正则规则")
 
-    # 4. Apply Presets (Inject into messages)
+    # 4. Pre-processing Regex (Order: Global Pre -> Local Pre)
+    # Global Pre-processing
+    global_pre_rules = [r for r in regex_rules if r.type == "pre"]
+    debug_log(f"应用 {len(global_pre_rules)} 条全局前置正则规则 (Global Pre)")
+    for msg in openai_request.messages:
+        if isinstance(msg.content, str):
+            original_content = msg.content
+            msg.content = regex_service.process(msg.content, global_pre_rules)
+            if original_content != msg.content:
+                 debug_log(f"全局前置正则处理: '{original_content}' -> '{msg.content}'")
+
+    # Local Pre-processing
+    local_pre_rules = [r for r in preset_regex_rules if r.type == "pre"]
+    debug_log(f"应用 {len(local_pre_rules)} 条局部前置正则规则 (Local Pre)")
+    for msg in openai_request.messages:
+        if isinstance(msg.content, str):
+            original_content = msg.content
+            msg.content = regex_service.process(msg.content, local_pre_rules)
+            if original_content != msg.content:
+                 debug_log(f"局部前置正则处理: '{original_content}' -> '{msg.content}'")
+
+    # 5. Apply Presets (Inject into messages)
     if presets and openai_request.messages:
         for preset in presets:
+            debug_log(f"开始处理预设: {preset.name}")
             try:
                 preset_content = json.loads(preset.content)
                 items = preset_content.get('items', [])
                 
                 if not items:
+                    debug_log(f"预设 {preset.name} 内容为空")
                     continue
                 
                 # 排序条目
@@ -193,6 +268,8 @@ async def chat_completions(
                     else:
                         history_messages.insert(0, msg)
                 
+                debug_log(f"预设条目处理: 共有 {len(sorted_items)} 个条目")
+                
                 for item in sorted_items:
                     item_type = item.get('type', 'normal')
                     item_role = item.get('role', 'system')
@@ -200,10 +277,12 @@ async def chat_completions(
                     item_enabled = item.get('enabled', True)
 
                     if not item_enabled:
+                        debug_log(f"跳过禁用条目: 类型={item_type}")
                         continue
                     
                     if item_type == 'normal':
                         # 直接注入普通条目
+                        debug_log(f"注入普通条目: role={item_role}, content_len={len(item_content)}")
                         processed_messages.append({
                             'role': item_role,
                             'content': item_content
@@ -211,12 +290,17 @@ async def chat_completions(
                     elif item_type == 'user_input':
                         # 注入最后一条用户消息
                         if last_user_message:
+                            debug_log(f"注入用户输入: content_len={len(str(last_user_message.content))}")
                             processed_messages.append({
                                 'role': last_user_message.role,
                                 'content': last_user_message.content
                             })
+                        else:
+                            debug_log("未找到用户输入消息")
                     elif item_type == 'history':
                         # 注入历史消息
+                        count = len(history_messages)
+                        debug_log(f"注入历史消息: {count} 条")
                         for hist_msg in history_messages:
                             processed_messages.append({
                                 'role': hist_msg.role,
@@ -225,25 +309,24 @@ async def chat_completions(
                 
                 # 如果处理后有消息，替换原始消息
                 if processed_messages:
-                    from app.schemas.openai import Message
-                    openai_request.messages = [Message(role=msg['role'], content=msg['content']) for msg in processed_messages]
+                    from app.schemas.openai import ChatMessage
+                    openai_request.messages = [ChatMessage(role=msg['role'], content=msg['content']) for msg in processed_messages]
+                    debug_log(f"预设处理完成, 新的消息列表长度: {len(openai_request.messages)}")
                     
             except Exception as e:
                 # 如果预设解析失败，跳过该预设
-                print(f"预设解析失败: {e}")
+                logger.error(f"预设解析失败: {e}")
                 continue
 
-    # 5. Variable Processing
+    # 6. Variable Processing
     # Apply variables to all string content in messages
+    debug_log("开始变量处理")
     for msg in openai_request.messages:
         if isinstance(msg.content, str):
+            original_content = msg.content
             msg.content = variable_service.parse_variables(msg.content)
-
-    # 6. Pre-processing Regex
-    pre_rules = [r for r in regex_rules if r.type == "pre"]
-    for msg in openai_request.messages:
-        if isinstance(msg.content, str):
-            msg.content = regex_service.process(msg.content, pre_rules)
+            if original_content != msg.content:
+                debug_log(f"变量替换: '{original_content}' -> '{msg.content}'")
 
     # 7. Model Mapping & Conversion
     model = openai_request.model
@@ -252,6 +335,7 @@ async def chat_completions(
         model = "gemini-1.5-flash"
     
     gemini_payload = await converter.openai_to_gemini(openai_request)
+    debug_log(f"发送给 Gemini 的最终 Payload: {json.dumps(gemini_payload, ensure_ascii=False, indent=2)}")
 
     # 8. Get API Key (Official or User's) - This is now handled by the dependency
 
@@ -315,13 +399,27 @@ async def chat_completions(
                                 gemini_chunk = json.loads(json_str)
                                 openai_chunk = converter.gemini_to_openai_chunk(gemini_chunk, model)
                                 
-                                # Post-processing Regex on chunk content
-                                post_rules = [r for r in regex_rules if r.type == "post"]
+                                # Post-processing Regex on chunk content (Order: Local Post -> Global Post)
+                                local_post_rules = [r for r in preset_regex_rules if r.type == "post"]
+                                global_post_rules = [r for r in regex_rules if r.type == "post"]
+                                
                                 if openai_chunk['choices'][0]['delta'].get('content'):
                                     content = openai_chunk['choices'][0]['delta']['content']
-                                    processed_content = regex_service.process(content, post_rules)
-                                    openai_chunk['choices'][0]['delta']['content'] = processed_content
-                                    full_response_text += processed_content
+                                    original_chunk_content = content
+
+                                    # Local Post
+                                    content = regex_service.process(content, local_post_rules)
+                                    if original_chunk_content != content:
+                                        debug_log(f"流式局部后置正则处理: '{original_chunk_content}' -> '{content}'")
+                                    
+                                    # Global Post
+                                    intermediate_content = content
+                                    content = regex_service.process(content, global_post_rules)
+                                    if intermediate_content != content:
+                                        debug_log(f"流式全局后置正则处理: '{intermediate_content}' -> '{content}'")
+                                    
+                                    openai_chunk['choices'][0]['delta']['content'] = content
+                                    full_response_text += content
                                 
                                 yield f"data: {json.dumps(openai_chunk)}\n\n"
                             except json.JSONDecodeError:
@@ -387,12 +485,26 @@ async def chat_completions(
             gemini_response = response.json()
             openai_response = converter.gemini_to_openai(gemini_response, model)
             
-            # Post-processing Regex
-            post_rules = [r for r in regex_rules if r.type == "post"]
+            # Post-processing Regex (Order: Local Post -> Global Post)
+            local_post_rules = [r for r in preset_regex_rules if r.type == "post"]
+            global_post_rules = [r for r in regex_rules if r.type == "post"]
+            
             if openai_response['choices'][0]['message'].get('content'):
                 content = openai_response['choices'][0]['message']['content']
-                processed_content = regex_service.process(content, post_rules)
-                openai_response['choices'][0]['message']['content'] = processed_content
+                original_content = content
+
+                # Local Post
+                content = regex_service.process(content, local_post_rules)
+                if original_content != content:
+                     debug_log(f"非流式局部后置正则处理: '{original_content}' -> '{content}'")
+
+                # Global Post
+                intermediate_content = content
+                content = regex_service.process(content, global_post_rules)
+                if intermediate_content != content:
+                     debug_log(f"非流式全局后置正则处理: '{intermediate_content}' -> '{content}'")
+                
+                openai_response['choices'][0]['message']['content'] = content
             
             # Log
             log_entry.status = "ok"

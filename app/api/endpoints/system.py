@@ -40,6 +40,7 @@ async def get_system_config(
         "email_whitelist_enabled": config.email_whitelist_enabled,
         "email_whitelist": json.loads(config.email_whitelist) if config.email_whitelist else [],
         "email_alias_restriction": config.email_alias_restriction,
+        "log_level": config.log_level,
     }
     
     # 敏感信息仅管理员可见
@@ -111,6 +112,9 @@ async def update_system_config(
     if config_in.turnstile_secret_key:  # 只在提供了密钥时更新
         config.turnstile_secret_key = config_in.turnstile_secret_key
     
+    # 日志配置
+    config.log_level = config_in.log_level
+
     await db.commit()
     await db.refresh(config)
     
@@ -134,4 +138,5 @@ async def update_system_config(
         "smtp_use_tls": config.smtp_use_tls,
         "turnstile_site_key": config.turnstile_site_key,
         "turnstile_secret_key": config.turnstile_secret_key,
+        "log_level": config.log_level,
     }

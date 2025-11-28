@@ -29,6 +29,9 @@ class SystemConfigBase(BaseModel):
     turnstile_site_key: Optional[str] = None
     turnstile_secret_key: Optional[str] = None
 
+    # 日志配置
+    log_level: str = "INFO"
+
 class SystemConfigCreate(SystemConfigBase):
     """创建系统配置"""
     pass

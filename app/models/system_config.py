@@ -33,3 +33,6 @@ class SystemConfig(Base):
     # Turnstile配置
     turnstile_site_key = Column(String, nullable=True)
     turnstile_secret_key = Column(String, nullable=True)
+
+    # 日志配置
+    log_level = Column(String, default="INFO") # DEBUG, INFO, WARNING, ERROR

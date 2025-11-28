@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/useToast';
-import { Save, Server, Mail, Shield, Users } from 'lucide-react';
+import { Save, Server, Mail, Shield, Users, AlertTriangle } from 'lucide-react';
 
 interface SystemConfig {
     id: number;
@@ -28,6 +28,7 @@ interface SystemConfig {
     smtp_use_tls: boolean;
     turnstile_site_key: string | null;
     turnstile_secret_key: string | null;
+    log_level: string;
 }
 
 export default function SystemPage() {
@@ -127,6 +128,32 @@ export default function SystemPage() {
                             placeholder="http://localhost:8000"
                         />
                         <p className="text-xs text-muted-foreground">用于首页和文档展示的服务器地址</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* 日志配置 */}
+            <div className="bg-card border rounded-lg p-6 space-y-4">
+                <div className="flex items-center gap-2 mb-4">
+                    <AlertTriangle className="w-5 h-5 text-primary" />
+                    <h2 className="text-xl font-semibold">日志配置</h2>
+                </div>
+
+                <div className="grid gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="log_level">日志级别</Label>
+                        <select
+                            id="log_level"
+                            value={config.log_level || 'INFO'}
+                            onChange={(e) => setConfig({ ...config, log_level: e.target.value })}
+                            className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            <option value="DEBUG">DEBUG (调试 - 详细信息)</option>
+                            <option value="INFO">INFO (信息 - 一般信息)</option>
+                            <option value="WARNING">WARNING (警告 - 潜在问题)</option>
+                            <option value="ERROR">ERROR (错误 - 严重问题)</option>
+                        </select>
+                        <p className="text-xs text-muted-foreground">控制后端输出日志的详细程度，问题排查时请开启 DEBUG</p>
                     </div>
                 </div>
             </div>
