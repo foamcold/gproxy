@@ -44,26 +44,32 @@ export default function PresetsPage() {
     const { toast } = useToast();
 
     // 加载预设列表
-    const fetchPresets = async () => {
+    const fetchPresets = async (newlySelectedId: number | null = null) => {
         try {
             setLoading(true);
             const data = await presetService.getPresets();
             const sortedData = data.sort((a, b) => a.sort_order - b.sort_order);
             setPresets(sortedData);
 
-            // 如果有选中的预设，更新它；否则默认选中第一个
-            if (selectedPreset) {
-                const updated = data.find((p) => p.id === selectedPreset.id);
-                if (updated) {
-                    setSelectedPreset(updated);
-                } else if (sortedData.length > 0) {
-                    setSelectedPreset(sortedData[0]);
-                } else {
-                    setSelectedPreset(null);
-                }
-            } else if (sortedData.length > 0) {
-                setSelectedPreset(sortedData[0]);
+            let presetToSelect: Preset | null = null;
+            if (newlySelectedId) {
+                presetToSelect = sortedData.find(p => p.id === newlySelectedId) || null;
             }
+
+            if (!presetToSelect && selectedPreset) {
+                // Try to find the previously selected preset in the new list
+                const updated = sortedData.find((p) => p.id === selectedPreset.id);
+                if (updated) {
+                    presetToSelect = updated;
+                }
+            }
+            
+            // Fallback to the first preset if no selection is determined yet
+            if (!presetToSelect && sortedData.length > 0) {
+                presetToSelect = sortedData[0];
+            }
+
+            setSelectedPreset(presetToSelect);
         } catch (error) {
             toast({
                 variant: 'error',
@@ -304,6 +310,9 @@ export default function PresetsPage() {
                     title: '导入成功',
                     description: `成功导入预设 "${importedData.name}"`,
                 });
+
+                // Refresh presets list and select the newly imported one
+                await fetchPresets(newPreset.id);
             }
             // Case 2: Import regex rules into the selected preset
             else {
@@ -320,10 +329,6 @@ export default function PresetsPage() {
                     throw new Error('文件格式不兼容。请选择一个预设文件。');
                 }
             }
-
-            // Refresh presets list
-            await fetchPresets();
-
         } catch (error) {
             console.error("Import failed:", error);
             toast({
