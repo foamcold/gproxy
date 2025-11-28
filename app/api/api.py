@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.endpoints import auth, users, keys, presets, regex, preset_regex, proxy, logs, system, generic_proxy, setup
+from app.api.endpoints import auth, users, keys, presets, regex, preset_regex, proxy, logs, system, generic_proxy, setup, gemini_routes
 
 api_router = APIRouter()
 api_router.include_router(setup.router, prefix="/setup", tags=["setup"])
@@ -12,4 +12,5 @@ api_router.include_router(preset_regex.router, tags=["preset_regex"])  # 预设�
 api_router.include_router(logs.router, prefix="/logs", tags=["logs"])
 api_router.include_router(system.router, prefix="/system", tags=["system"])
 api_router.include_router(generic_proxy.router, tags=["generic_proxy"]) # Generic proxy at root
+api_router.include_router(gemini_routes.router, tags=["gemini_routes"]) # Native Gemini API proxy
 

@@ -18,6 +18,7 @@ class OfficialKey(OfficialKeyBase):
     id: int
     user_id: int
     usage_count: int
+    error_count: int
     total_tokens: int
     last_status: str
     created_at: datetime

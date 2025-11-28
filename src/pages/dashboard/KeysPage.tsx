@@ -38,11 +38,11 @@ interface ExclusiveKey {
 interface OfficialKey {
     id: number;
     key: string;
-    name: string;
     is_active: boolean;
-    total_requests: number;
-    failed_requests: number;
-    last_used_at: string | null;
+    usage_count: number;
+    error_count: number;
+    total_tokens: number;
+    last_status: string;
     created_at: string;
 }
 
@@ -75,7 +75,7 @@ export default function KeysPage() {
     });
 
     const [isOfficialDialogOpen, setIsOfficialDialogOpen] = useState(false);
-    const [officialForm, setOfficialForm] = useState({ name: '', key: '', is_active: true });
+    const [officialForm, setOfficialForm] = useState({ key: '', is_active: true });
 
     const { toast } = useToast();
 
@@ -176,7 +176,7 @@ export default function KeysPage() {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setIsOfficialDialogOpen(false);
-            setOfficialForm({ name: '', key: '', is_active: true });
+            setOfficialForm({ key: '', is_active: true });
             fetchData();
             toast({ variant: 'success', title: '添加成功' });
         } catch (error) {
@@ -198,7 +198,7 @@ export default function KeysPage() {
         }
     };
 
-    const handleDeleteOfficial = async (id: number, name: string) => {
+    const handleDeleteOfficial = async (id: number) => {
         if (!await confirm({ title: "删除密钥", description: `确定要删除此官方密钥吗？`, confirmText: "删除" })) return;
         const token = localStorage.getItem('token');
         try {
@@ -376,20 +376,38 @@ export default function KeysPage() {
                 {/* Official Keys Tab */}
                 <TabsContent value="official" className="space-y-6">
                     <div className="flex justify-between items-center">
-                        <div>
-                            <h2 className="text-2xl font-bold tracking-tight">官方密钥管理</h2>
-                            <p className="text-muted-foreground">
-                                管理 Gemini 官方 API 密钥，系统将自动轮询使用
-                            </p>
+                        <div className="flex gap-4">
+                            <div className="flex items-center gap-2 border px-3 py-1 rounded-md text-sm h-10 bg-card">
+                                <span className="text-muted-foreground">总密钥数</span>
+                                <span className="font-bold">{officialKeys.length}</span>
+                            </div>
+                            <div className="flex items-center gap-2 border px-3 py-1 rounded-md text-sm h-10 bg-card">
+                                <span className="text-muted-foreground">活跃密钥</span>
+                                <span className="font-bold text-green-600">
+                                    {officialKeys.filter(k => k.is_active).length}
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-2 border px-3 py-1 rounded-md text-sm h-10 bg-card">
+                                <span className="text-muted-foreground">请求次数</span>
+                                <span className="font-bold">
+                                    {officialKeys.reduce((sum, k) => sum + (k.usage_count || 0), 0)}
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-2 border px-3 py-1 rounded-md text-sm h-10 bg-card">
+                                <span className="text-muted-foreground">错误次数</span>
+                                <span className="font-bold text-red-600">
+                                    {officialKeys.reduce((sum, k) => sum + (k.error_count || 0), 0)}
+                                </span>
+                            </div>
                         </div>
                         <div className="flex gap-2">
-                            <Button onClick={fetchData} variant="outline" size="sm">
+                            <Button onClick={fetchData} variant="outline" className="h-10">
                                 <RefreshCw className="w-4 h-4 mr-2" />
                                 刷新
                             </Button>
                             <Dialog open={isOfficialDialogOpen} onOpenChange={setIsOfficialDialogOpen}>
                                 <DialogTrigger asChild>
-                                    <Button>
+                                    <Button className="h-10">
                                         <Plus className="w-4 h-4 mr-2" />
                                         添加密钥
                                     </Button>
@@ -399,16 +417,6 @@ export default function KeysPage() {
                                         <DialogTitle>添加官方密钥</DialogTitle>
                                     </DialogHeader>
                                     <form onSubmit={handleCreateOfficial} className="space-y-4">
-                                        <div className="space-y-2">
-                                            <Label htmlFor="name">名称</Label>
-                                            <Input
-                                                id="name"
-                                                value={officialForm.name}
-                                                onChange={(e) => setOfficialForm({ ...officialForm, name: e.target.value })}
-                                                placeholder="为密钥命名，方便识别"
-                                                required
-                                            />
-                                        </div>
                                         <div className="space-y-2">
                                             <Label htmlFor="key">API Key</Label>
                                             <Input
@@ -437,32 +445,6 @@ export default function KeysPage() {
                         </div>
                     </div>
 
-                    {/* 统计卡片 */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div className="bg-card border rounded-lg p-4">
-                            <div className="text-sm text-muted-foreground">总密钥数</div>
-                            <div className="text-2xl font-bold mt-1">{officialKeys.length}</div>
-                        </div>
-                        <div className="bg-card border rounded-lg p-4">
-                            <div className="text-sm text-muted-foreground">活跃密钥</div>
-                            <div className="text-2xl font-bold mt-1 text-green-600">
-                                {officialKeys.filter(k => k.is_active).length}
-                            </div>
-                        </div>
-                        <div className="bg-card border rounded-lg p-4">
-                            <div className="text-sm text-muted-foreground">总请求数</div>
-                            <div className="text-2xl font-bold mt-1">
-                                {officialKeys.reduce((sum, k) => sum + k.total_requests, 0)}
-                            </div>
-                        </div>
-                        <div className="bg-card border rounded-lg p-4">
-                            <div className="text-sm text-muted-foreground">失败请求</div>
-                            <div className="text-2xl font-bold mt-1 text-red-600">
-                                {officialKeys.reduce((sum, k) => sum + k.failed_requests, 0)}
-                            </div>
-                        </div>
-                    </div>
-
                     {/* 密钥列表 */}
                     <div className="bg-card border rounded-lg overflow-hidden">
                         {officialKeys.length === 0 ? (
@@ -474,21 +456,15 @@ export default function KeysPage() {
                         ) : (
                             <div className="divide-y">
                                 {officialKeys.map((key) => {
-                                    const successRate = key.total_requests === 0 ? 0 : ((key.total_requests - key.failed_requests) / key.total_requests * 100);
-                                    let healthColor = 'text-red-600';
-                                    let healthLabel = '异常';
+                                    let healthColor = 'text-green-600';
+                                    let healthLabel = '正常';
+                                    
                                     if (!key.is_active) {
                                         healthColor = 'text-gray-500';
                                         healthLabel = '已禁用';
-                                    } else if (successRate >= 95) {
-                                        healthColor = 'text-green-600';
-                                        healthLabel = '健康';
-                                    } else if (successRate >= 80) {
-                                        healthColor = 'text-blue-600';
-                                        healthLabel = '良好';
-                                    } else if (successRate >= 60) {
-                                        healthColor = 'text-yellow-600';
-                                        healthLabel = '一般';
+                                    } else if (key.last_status && key.last_status !== 'active') {
+                                        healthColor = 'text-red-600';
+                                        healthLabel = key.last_status;
                                     }
 
                                     return (
@@ -496,40 +472,36 @@ export default function KeysPage() {
                                             <div className="flex items-start justify-between">
                                                 <div className="flex-1">
                                                     <div className="flex items-center gap-3 mb-2">
-                                                        <span className="font-medium">{key.name}</span>
+                                                        <div className="font-mono text-sm">{key.key.substring(0, 20)}...</div>
                                                         <span className={cn("text-xs flex items-center gap-1", healthColor)}>
                                                             <Activity className="w-3 h-3" />
                                                             {healthLabel}
                                                         </span>
                                                     </div>
-                                                    <div className="text-xs font-mono text-muted-foreground mb-3">
-                                                        {key.key.substring(0, 20)}...
-                                                    </div>
-                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm mt-3">
                                                         <div>
-                                                            <div className="text-muted-foreground">总请求</div>
-                                                            <div className="font-medium">{key.total_requests}</div>
+                                                            <div className="text-muted-foreground">请求次数</div>
+                                                            <div className="font-medium">{key.usage_count || 0}</div>
                                                         </div>
                                                         <div>
-                                                            <div className="text-muted-foreground">失败</div>
-                                                            <div className="font-medium text-red-600">{key.failed_requests}</div>
+                                                            <div className="text-muted-foreground">错误次数</div>
+                                                            <div className="font-medium text-red-600">{key.error_count || 0}</div>
                                                         </div>
                                                         <div>
-                                                            <div className="text-muted-foreground">成功率</div>
-                                                            <div className="font-medium">{successRate.toFixed(1)}%</div>
+                                                            <div className="text-muted-foreground">总 Tokens</div>
+                                                            <div className="font-medium">{key.total_tokens || 0}</div>
                                                         </div>
-                                                        <div>
-                                                            <div className="text-muted-foreground">最后使用</div>
+                                                        <div className="col-span-2">
+                                                            <div className="text-muted-foreground">创建时间</div>
                                                             <div className="font-medium">
-                                                                {key.last_used_at
-                                                                    ? new Date(key.last_used_at).toLocaleString('zh-CN', {
-                                                                        month: 'short',
-                                                                        day: 'numeric',
-                                                                        hour: '2-digit',
-                                                                        minute: '2-digit'
-                                                                    })
-                                                                    : '从未使用'
-                                                                }
+                                                                {new Date(key.created_at).toLocaleString('zh-CN', {
+                                                                    year: 'numeric',
+                                                                    month: '2-digit',
+                                                                    day: '2-digit',
+                                                                    hour: '2-digit',
+                                                                    minute: '2-digit',
+                                                                    second: '2-digit'
+                                                                })}
                                                             </div>
                                                         </div>
                                                     </div>
@@ -542,7 +514,7 @@ export default function KeysPage() {
                                                     <Button
                                                         variant="ghost"
                                                         size="sm"
-                                                        onClick={() => handleDeleteOfficial(key.id, key.name)}
+                                                        onClick={() => handleDeleteOfficial(key.id)}
                                                         className="text-destructive"
                                                     >
                                                         <Trash2 className="w-4 h-4" />

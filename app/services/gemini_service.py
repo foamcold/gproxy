@@ -9,6 +9,14 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Basic Logger Configuration
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
 class GeminiService:
     def __init__(self):
         limits = httpx.Limits(max_keepalive_connections=100, max_connections=1000)
@@ -20,6 +28,13 @@ class GeminiService:
             limits=limits,
             follow_redirects=True
         )
+
+    def update_log_level(self, level_name: str):
+        """Update logger level dynamically"""
+        level = getattr(logging, level_name.upper(), logging.INFO)
+        logger.setLevel(level)
+        for handler in logger.handlers:
+            handler.setLevel(level)
 
     async def close(self):
         await self.client.aclose()
@@ -73,9 +88,17 @@ class GeminiService:
         key = result.scalars().first()
         if key:
             key.last_status = status
-            if status in ["401", "403"]: # Invalid key
+            key.usage_count += 1  # Always increment usage count
+
+            if status in ["401", "403"]:  # Invalid key
                 key.is_active = False
-            key.usage_count += 1
+
+            # Increment error count if status is not a success (2xx)
+            if not status.startswith("2"):
+                if key.error_count is None:
+                    key.error_count = 0
+                key.error_count += 1
+            
             await db.commit()
 
 gemini_service = GeminiService()

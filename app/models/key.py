@@ -10,6 +10,7 @@ class OfficialKey(Base):
     key = Column(String, unique=True, index=True, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"))
     usage_count = Column(Integer, default=0)
+    error_count = Column(Integer, default=0)
     total_tokens = Column(BigInteger, default=0)
     last_status = Column(String, default="active") # "active", "429", "401", etc.
     is_active = Column(Boolean, default=True)

@@ -439,6 +439,11 @@ async def chat_completions(
             log_entry.ttft = ttft
             log_entry.output_tokens = len(full_response_text) // 4
             await db.commit()
+            
+            # 更新密钥状态
+            if response.status_code:
+                await gemini_service.update_key_status(db, official_key, str(response.status_code))
+
             await response.aclose()
             
     if openai_request.stream:
@@ -455,13 +460,17 @@ async def chat_completions(
                 await response.aclose()
                 # 将 Gemini 错误转换为 OpenAI 格式并直接返回 JSON
                 openai_error = converter.gemini_error_to_openai(error_content, response.status_code)
+                # 在返回前更新密钥状态
+                await gemini_service.update_key_status(db, official_key, str(response.status_code))
                 return JSONResponse(content=openai_error, status_code=response.status_code)
             
             return StreamingResponse(response_generator(response), media_type="text/event-stream")
         
         except Exception as e:
             log_entry.status = "error"
+            log_entry.status_code = 500
             await db.commit()
+            await gemini_service.update_key_status(db, official_key, "500")
             raise HTTPException(status_code=500, detail=str(e))
     else:
         # Non-streaming logic
@@ -480,6 +489,8 @@ async def chat_completions(
                 await db.commit()
                 # 将 Gemini 错误转换为 OpenAI 格式
                 openai_error = converter.gemini_error_to_openai(response.content, response.status_code)
+                # 在返回前更新密钥状态
+                await gemini_service.update_key_status(db, official_key, str(response.status_code))
                 return JSONResponse(content=openai_error, status_code=response.status_code)
             
             gemini_response = response.json()
@@ -511,9 +522,14 @@ async def chat_completions(
             log_entry.status_code = 200
             log_entry.latency = time.time() - start_time
             await db.commit()
+
+            # 更新密钥状态
+            await gemini_service.update_key_status(db, official_key, str(response.status_code))
             
             return JSONResponse(content=openai_response)
         except Exception as e:
              log_entry.status = "error"
+             log_entry.status_code = 500
              await db.commit()
+             await gemini_service.update_key_status(db, official_key, "500")
              raise HTTPException(status_code=500, detail=str(e))
