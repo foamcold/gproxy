@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -46,6 +46,11 @@ export function PresetItemEditDialog({
     onSave,
 }: PresetItemEditDialogProps) {
     const [formData, setFormData] = useState<PresetItem>(item);
+
+    // Sync formData when item prop changes
+    useEffect(() => {
+        setFormData(item);
+    }, [item]);
 
     const handleSave = () => {
         onSave(formData);

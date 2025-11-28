@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Plus } from 'lucide-react';
@@ -17,38 +17,51 @@ interface PresetItemEditorProps {
 export function PresetItemEditor({ preset, onUpdatePreset }: PresetItemEditorProps) {
     const [editingItem, setEditingItem] = useState<PresetItem | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [localItems, setLocalItems] = useState<PresetItem[]>([]);
 
     const sensors = useSensors(
         useSensor(PointerSensor),
         useSensor(KeyboardSensor)
     );
 
+    // Sync local items with preset content when preset changes
+    useEffect(() => {
+        if (preset) {
+            const content = presetService.parsePresetContent(preset.content);
+            setLocalItems(content.items || []);
+        } else {
+            setLocalItems([]);
+        }
+    }, [preset]);
+
     if (!preset) {
         return (
             <div className="flex items-center justify-center h-full text-muted-foreground">
-                <p>← 请从左侧选择一个预设</p>
+                <p>请选择一个预设</p>
             </div>
         );
     }
 
-    const content = presetService.parsePresetContent(preset.content);
-    const items = content.items || [];
-
+    // Helper to update both local state and parent/server
+    const updateItems = (newItems: PresetItem[]) => {
+        setLocalItems(newItems);
+        const newContent: PresetContent = { items: newItems };
+        onUpdatePreset(preset.id, presetService.stringifyPresetContent(newContent));
+    };
 
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
 
         if (over && active.id !== over.id) {
-            const oldIndex = items.findIndex((item) => item.id === active.id);
-            const newIndex = items.findIndex((item) => item.id === over.id);
+            const oldIndex = localItems.findIndex((item) => item.id === active.id);
+            const newIndex = localItems.findIndex((item) => item.id === over.id);
 
-            const newItems = arrayMove(items, oldIndex, newIndex).map((item, index) => ({
+            const newItems = arrayMove(localItems, oldIndex, newIndex).map((item, index) => ({
                 ...item,
                 order: index,
             }));
 
-            const newContent: PresetContent = { items: newItems };
-            onUpdatePreset(preset.id, presetService.stringifyPresetContent(newContent));
+            updateItems(newItems);
         }
     };
 
@@ -59,7 +72,7 @@ export function PresetItemEditor({ preset, onUpdatePreset }: PresetItemEditorPro
             type: 'normal',
             name: '新建条目',
             content: '',
-            order: items.length,
+            order: localItems.length,
         };
         setEditingItem(newItem);
         setIsDialogOpen(true);
@@ -71,26 +84,26 @@ export function PresetItemEditor({ preset, onUpdatePreset }: PresetItemEditorPro
     };
 
     const handleSaveItem = (item: PresetItem) => {
-        const existingIndex = items.findIndex((i) => i.id === item.id);
+        const existingIndex = localItems.findIndex((i) => i.id === item.id);
         let newItems: PresetItem[];
 
         if (existingIndex >= 0) {
             // 更新现有条目
-            newItems = items.map((i) => (i.id === item.id ? item : i));
+            newItems = localItems.map((i) => (i.id === item.id ? item : i));
         } else {
             // 添加新条目
-            newItems = [...items, item];
+            newItems = [...localItems, item];
         }
 
-        const newContent: PresetContent = { items: newItems };
-        onUpdatePreset(preset.id, presetService.stringifyPresetContent(newContent));
+        updateItems(newItems);
         setIsDialogOpen(false);
+        // Clear editing item to prevent stale data issues
+        setEditingItem(null);
     };
 
     const handleDeleteItem = (itemId: string) => {
-        const newItems = items.filter((i) => i.id !== itemId);
-        const newContent: PresetContent = { items: newItems };
-        onUpdatePreset(preset.id, presetService.stringifyPresetContent(newContent));
+        const newItems = localItems.filter((i) => i.id !== itemId);
+        updateItems(newItems);
     };
 
     const handleDuplicateItem = (item: PresetItem) => {
@@ -98,11 +111,10 @@ export function PresetItemEditor({ preset, onUpdatePreset }: PresetItemEditorPro
             ...item,
             id: presetService.generateItemId(),
             name: `${item.name} (副本)`,
-            order: items.length,
+            order: localItems.length,
         };
-        const newItems = [...items, newItem];
-        const newContent: PresetContent = { items: newItems };
-        onUpdatePreset(preset.id, presetService.stringifyPresetContent(newContent));
+        const newItems = [...localItems, newItem];
+        updateItems(newItems);
     };
 
     return (
@@ -113,7 +125,7 @@ export function PresetItemEditor({ preset, onUpdatePreset }: PresetItemEditorPro
                     <div>
                         <h2 className="text-lg font-semibold">{preset.name}</h2>
                         <p className="text-sm text-muted-foreground">
-                            {items.length} 个条目
+                            {localItems.length} 个条目
                         </p>
                     </div>
                     <Button onClick={handleAddItem}>
@@ -125,7 +137,7 @@ export function PresetItemEditor({ preset, onUpdatePreset }: PresetItemEditorPro
 
             {/* 条目列表 */}
             <ScrollArea className="flex-1 p-4">
-                {items.length === 0 ? (
+                {localItems.length === 0 ? (
                     <div className="text-center text-muted-foreground py-8">
                         <p className="text-sm">暂无条目</p>
                         <p className="text-xs mt-1">点击"添加条目"创建第一个条目</p>
@@ -137,11 +149,11 @@ export function PresetItemEditor({ preset, onUpdatePreset }: PresetItemEditorPro
                         onDragEnd={handleDragEnd}
                     >
                         <SortableContext
-                            items={items.map((item) => item.id!)}
+                            items={localItems.map((item) => item.id!)}
                             strategy={verticalListSortingStrategy}
                         >
                             <div className="space-y-2">
-                                {items.map((item) => (
+                                {localItems.map((item) => (
                                     <PresetItemRow
                                         key={item.id}
                                         item={item}
@@ -161,7 +173,10 @@ export function PresetItemEditor({ preset, onUpdatePreset }: PresetItemEditorPro
                 <PresetItemEditDialog
                     item={editingItem}
                     open={isDialogOpen}
-                    onOpenChange={setIsDialogOpen}
+                    onOpenChange={(open) => {
+                        setIsDialogOpen(open);
+                        if (!open) setEditingItem(null);
+                    }}
                     onSave={handleSaveItem}
                 />
             )}
