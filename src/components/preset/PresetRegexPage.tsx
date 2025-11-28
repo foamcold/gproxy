@@ -9,6 +9,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import {
     Dialog,
     DialogContent,
     DialogHeader,
@@ -364,70 +371,73 @@ export function PresetRegexPage({ presetId }: PresetRegexPageProps) {
                                 添加规则
                             </Button>
                         </DialogTrigger>
-                    <DialogContent className="max-w-2xl">
-                        <DialogHeader>
-                            <DialogTitle>{editingRule ? '编辑规则' : '新建规则'}</DialogTitle>
-                            <DialogDescription>
-                                支持标准正则表达式语法和捕获组替换（$1, $2, ...）
-                            </DialogDescription>
-                        </DialogHeader>
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="name">名称</Label>
-                                <Input
-                                    id="name"
-                                    value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    placeholder="例如：过滤敏感词"
-                                    required
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="type">类型</Label>
-                                <select
-                                    id="type"
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                                    value={formData.type}
-                                    onChange={(e) => setFormData({ ...formData, type: e.target.value as 'pre' | 'post' })}
-                                >
-                                    <option value="pre">预处理 (处理用户请求)</option>
-                                    <option value="post">后处理 (处理AI响应)</option>
-                                </select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="pattern">正则表达式模式</Label>
-                                <Input
-                                    id="pattern"
-                                    value={formData.pattern}
-                                    onChange={(e) => setFormData({ ...formData, pattern: e.target.value })}
-                                    placeholder="例如：\b(你好|hello)\b"
-                                    className="font-mono"
-                                    required
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="replacement">替换内容</Label>
-                                <Textarea
-                                    id="replacement"
-                                    value={formData.replacement}
-                                    onChange={(e) => setFormData({ ...formData, replacement: e.target.value })}
-                                    placeholder="例如：$1 世界  或  ***"
-                                    className="font-mono h-20"
-                                />
-                            </div>
-                            <DialogFooter className="sm:justify-between">
-                                <div className="flex items-center gap-2">
-                                    <Switch
-                                        id="active"
-                                        checked={formData.is_active}
-                                        onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                        <DialogContent className="max-w-2xl">
+                            <DialogHeader>
+                                <DialogTitle>{editingRule ? '编辑规则' : '新建规则'}</DialogTitle>
+                                <DialogDescription>
+                                    支持标准正则表达式语法和捕获组替换（$1, $2, ...）
+                                </DialogDescription>
+                            </DialogHeader>
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="name">名称</Label>
+                                    <Input
+                                        id="name"
+                                        value={formData.name}
+                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                        placeholder="例如：过滤敏感词"
+                                        required
                                     />
-                                    <Label htmlFor="active">启用此规则</Label>
                                 </div>
-                                <Button type="submit">保存</Button>
-                            </DialogFooter>
-                        </form>
-                    </DialogContent>
+                                <div className="space-y-2">
+                                    <Label htmlFor="type">类型</Label>
+                                    <Select
+                                        value={formData.type}
+                                        onValueChange={(value) => setFormData({ ...formData, type: value as 'pre' | 'post' })}
+                                    >
+                                        <SelectTrigger id="type">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="pre">预处理 (处理用户请求)</SelectItem>
+                                            <SelectItem value="post">后处理 (处理AI响应)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="pattern">正则表达式模式</Label>
+                                    <Input
+                                        id="pattern"
+                                        value={formData.pattern}
+                                        onChange={(e) => setFormData({ ...formData, pattern: e.target.value })}
+                                        placeholder="例如：\b(你好|hello)\b"
+                                        className="font-mono"
+                                        required
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="replacement">替换内容</Label>
+                                    <Textarea
+                                        id="replacement"
+                                        value={formData.replacement}
+                                        onChange={(e) => setFormData({ ...formData, replacement: e.target.value })}
+                                        placeholder="例如：$1 世界  或  ***"
+                                        className="font-mono h-20"
+                                    />
+                                </div>
+                                <DialogFooter className="sm:justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Switch
+                                            id="active"
+                                            checked={formData.is_active}
+                                            onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                                        />
+                                        <Label htmlFor="active">启用此规则</Label>
+                                    </div>
+                                    <Button type="submit">保存</Button>
+                                </DialogFooter>
+                            </form>
+                        </DialogContent>
                     </Dialog>
                 </div>
             </div>

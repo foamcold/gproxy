@@ -21,7 +21,6 @@ import {
     Download,
     Upload,
     Pencil,
-    ChevronDown,
 } from 'lucide-react';
 import {
     Dialog,
@@ -367,11 +366,11 @@ export default function PresetsPage() {
                             if (preset) setSelectedPreset(preset);
                         }}
                     >
-                        <SelectTrigger className="pr-2 [&>svg]:hidden">
+                        <SelectTrigger className="pr-2">
                             <SelectValue placeholder="选择预设..." />
                             {/* 下拉框内的重命名和删除按钮 */}
                             {selectedPreset && (
-                                <div className="ml-auto flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                <div className="ml-auto flex items-center gap-1 mr-6" onClick={(e) => e.stopPropagation()}>
                                     <Button
                                         variant="ghost"
                                         size="icon"
@@ -396,16 +395,6 @@ export default function PresetsPage() {
                                     >
                                         <Trash2 className="w-3 h-3" />
                                     </Button>
-                                    {/* 倒三角箭头 */}
-                                    <div className="flex items-center">
-                                        <ChevronDown className="h-4 w-4 opacity-50" />
-                                    </div>
-                                </div>
-                            )}
-                            {/* 没有选中预设时只显示箭头 */}
-                            {!selectedPreset && (
-                                <div className="ml-auto flex items-center">
-                                    <ChevronDown className="h-4 w-4 opacity-50" />
                                 </div>
                             )}
                         </SelectTrigger>
