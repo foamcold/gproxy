@@ -321,18 +321,36 @@ export default function RegexPage() {
         try {
             const importedData = await importFromJSON<any>();
             const token = localStorage.getItem('token');
-            const importedRules = Array.isArray(importedData) ? importedData : [importedData];
+            let rulesToImport = [];
 
+            // Case 1: Import from a preset file
+            if (importedData.type === 'preset' && importedData.content && Array.isArray(importedData.content.regex)) {
+                rulesToImport = importedData.content.regex;
+            }
+            // Case 2: Import from a regex file (array or single object)
+            else {
+                rulesToImport = Array.isArray(importedData) ? importedData : [importedData];
+            }
+            
+            if (rulesToImport.length === 0) {
+                toast({
+                    variant: 'info',
+                    title: '没有可导入的规则',
+                    description: '文件中未找到兼容的正则规则。',
+                });
+                return;
+            }
 
-            for (const rule of importedRules) {
-                const ruleContent = rule.content || rule;
+            for (const rule of rulesToImport) {
+                // Preset files have a different structure
+                const ruleContent = rule.content || {};
                 await axios.post(`${API_BASE_URL}/regex/`, {
-                    name: ruleContent.name,
+                    name: rule.name,
                     pattern: ruleContent.pattern,
                     replacement: ruleContent.replacement,
                     type: ruleContent.type,
-                    is_active: rule.is_active,
-                    sort_order: rules.length + importedRules.indexOf(rule),
+                    is_active: rule.enabled,
+                    sort_order: rules.length + rulesToImport.indexOf(rule),
                 }, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
@@ -342,10 +360,10 @@ export default function RegexPage() {
             toast({
                 variant: 'success',
                 title: '导入成功',
-                description: `成功导入 ${importedRules.length} 条规则`,
+                description: `成功导入 ${rulesToImport.length} 条规则`,
             });
         } catch (error) {
-            toast({ variant: 'error', title: '导入失败' });
+            toast({ variant: 'error', title: '导入失败', description: '文件格式可能不兼容' });
         }
     };
 

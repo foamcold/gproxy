@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Plus } from 'lucide-react';
+import { Plus, Download, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PresetItemRow } from './PresetItemRow';
 import { PresetItemEditDialog } from './PresetItemEditDialog';
@@ -9,6 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Preset, PresetItem } from '@/services/presetService';
 import { presetService } from '@/services/presetService';
 import { useToast } from '@/hooks/useToast';
+import { exportToJSON, importFromJSON } from '@/utils/exportImport';
 
 interface PresetItemEditorProps {
     preset: Preset;
@@ -117,6 +118,59 @@ export function PresetItemEditor({ preset, onItemsChange }: PresetItemEditorProp
         }
     };
 
+    const handleExportItems = () => {
+        const exportData = localItems.map(item => ({
+            name: item.name,
+            creator_username: item.creator_username || 'unknown',
+            created_at: item.created_at,
+            updated_at: item.updated_at,
+            enabled: item.enabled,
+            role: item.role,
+            type: item.type,
+            content: item.content,
+        }));
+
+        exportToJSON(exportData, `gproxy-preset-items-${preset.name}`);
+        toast({
+            variant: 'success',
+            title: '导出成功',
+            description: `成功导出 ${localItems.length} 个条目`,
+        });
+    };
+
+    const handleImportItems = async () => {
+        try {
+            const importedData = await importFromJSON<any[]>();
+            if (!Array.isArray(importedData)) {
+                throw new Error('导入文件格式不正确，需要一个数组');
+            }
+
+            for (const item of importedData) {
+                await presetService.createPresetItem(preset.id, {
+                    name: item.name,
+                    role: item.role,
+                    type: item.type,
+                    content: item.content,
+                    enabled: item.enabled,
+                    sort_order: localItems.length + importedData.indexOf(item),
+                });
+            }
+
+            onItemsChange();
+            toast({
+                variant: 'success',
+                title: '导入成功',
+                description: `成功导入 ${importedData.length} 个条目`,
+            });
+        } catch (error) {
+            toast({
+                variant: 'error',
+                title: '导入失败',
+                description: error instanceof Error ? error.message : '未知错误',
+            });
+        }
+    };
+
     return (
         <div className="flex flex-col h-full">
             {/* 头部 */}
@@ -128,10 +182,20 @@ export function PresetItemEditor({ preset, onItemsChange }: PresetItemEditorProp
                             {localItems.length} 个条目
                         </p>
                     </div>
-                    <Button onClick={handleAddItem}>
-                        <Plus className="w-4 h-4 mr-2" />
-                        添加条目
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <Button onClick={handleExportItems} variant="outline" size="sm" disabled={localItems.length === 0}>
+                            <Download className="w-4 h-4 mr-2" />
+                            导出
+                        </Button>
+                        <Button onClick={handleImportItems} variant="outline" size="sm">
+                            <Upload className="w-4 h-4 mr-2" />
+                            导入
+                        </Button>
+                        <Button onClick={handleAddItem}>
+                            <Plus className="w-4 h-4 mr-2" />
+                            添加条目
+                        </Button>
+                    </div>
                 </div>
             </div>
 

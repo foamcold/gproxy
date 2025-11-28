@@ -3,7 +3,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Plus, Pencil, Trash2, GripVertical, FileDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, GripVertical, FileDown, Download, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/useToast';
 import { presetRegexService, type PresetRegexRule } from '@/services/presetRegexService';
-import { exportToJSON } from '@/utils/exportImport';
+import { exportToJSON, importFromJSON } from '@/utils/exportImport';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 
@@ -275,20 +275,82 @@ export function PresetRegexPage({ presetId }: PresetRegexPageProps) {
         toast({ variant: 'success', title: '导出成功' });
     };
 
+    const handleExportRules = () => {
+        const exportData = rules.map(rule => ({
+            name: rule.name,
+            type: 'regex',
+            creator_username: rule.creator_username || 'unknown',
+            created_at: rule.created_at || new Date().toISOString(),
+            updated_at: rule.updated_at || new Date().toISOString(),
+            enabled: rule.is_active,
+            content: {
+                type: rule.type,
+                pattern: rule.pattern,
+                replacement: rule.replacement,
+            }
+        }));
+
+        exportToJSON(exportData, `gproxy-preset-regex-rules`);
+        toast({ variant: 'success', title: '导出成功' });
+    };
+
+    const handleImportRules = async () => {
+        try {
+            const importedData = await importFromJSON<any[]>();
+            if (!Array.isArray(importedData)) {
+                throw new Error('导入文件格式不正确，需要一个数组');
+            }
+
+            for (const rule of importedData) {
+                const ruleContent = rule.content || rule;
+                await presetRegexService.createPresetRegexRule(presetId, {
+                    name: rule.name,
+                    pattern: ruleContent.pattern,
+                    replacement: ruleContent.replacement,
+                    type: ruleContent.type,
+                    is_active: rule.enabled,
+                    sort_order: rules.length + importedData.indexOf(rule),
+                });
+            }
+
+            fetchRules();
+            toast({
+                variant: 'success',
+                title: '导入成功',
+                description: `成功导入 ${importedData.length} 条规则`,
+            });
+        } catch (error) {
+            toast({
+                variant: 'error',
+                title: '导入失败',
+                description: error instanceof Error ? error.message : '未知错误',
+            });
+        }
+    };
+
     return (
         <div className="space-y-4 h-full flex flex-col">
             <div className="flex justify-between items-center px-4 pt-4">
                 <h2 className="text-lg font-semibold">预设内部正则</h2>
-                <Dialog open={isDialogOpen} onOpenChange={(open) => {
-                    setIsDialogOpen(open);
-                    if (!open) resetForm();
-                }}>
-                    <DialogTrigger asChild>
-                        <Button>
-                            <Plus className="w-4 h-4 mr-2" />
-                            添加规则
-                        </Button>
-                    </DialogTrigger>
+                <div className="flex items-center gap-2">
+                    <Button onClick={handleExportRules} variant="outline" size="sm" disabled={rules.length === 0}>
+                        <Download className="w-4 h-4 mr-2" />
+                        导出
+                    </Button>
+                    <Button onClick={handleImportRules} variant="outline" size="sm">
+                        <Upload className="w-4 h-4 mr-2" />
+                        导入
+                    </Button>
+                    <Dialog open={isDialogOpen} onOpenChange={(open) => {
+                        setIsDialogOpen(open);
+                        if (!open) resetForm();
+                    }}>
+                        <DialogTrigger asChild>
+                            <Button>
+                                <Plus className="w-4 h-4 mr-2" />
+                                添加规则
+                            </Button>
+                        </DialogTrigger>
                     <DialogContent className="max-w-2xl">
                         <DialogHeader>
                             <DialogTitle>{editingRule ? '编辑规则' : '新建规则'}</DialogTitle>
@@ -353,7 +415,8 @@ export function PresetRegexPage({ presetId }: PresetRegexPageProps) {
                             </DialogFooter>
                         </form>
                     </DialogContent>
-                </Dialog>
+                    </Dialog>
+                </div>
             </div>
 
             <div className="flex-1 bg-card border rounded-lg overflow-hidden mx-4 mb-4">

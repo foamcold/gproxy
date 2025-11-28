@@ -260,46 +260,82 @@ export default function PresetsPage() {
     const handleImport = async () => {
         try {
             const importedData = await importFromJSON<any>();
-            
-            const newPreset = await presetService.createPreset({
-                name: importedData.name,
-                is_active: importedData.enabled,
-                sort_order: presets.length,
-            });
 
-            if (importedData.content && importedData.content.preset) {
-                for (const item of importedData.content.preset) {
-                    await presetService.createPresetItem(newPreset.id, {
-                        name: item.name,
-                        role: item.role,
-                        type: item.type,
-                        content: item.content,
-                        enabled: item.enabled,
-                        sort_order: importedData.content.preset.indexOf(item),
+            // Case 1: Import a full preset
+            if (importedData.type === 'preset') {
+                const newPreset = await presetService.createPreset({
+                    name: importedData.name,
+                    is_active: importedData.enabled,
+                    sort_order: presets.length,
+                });
+
+                if (importedData.content && importedData.content.preset) {
+                    for (const item of importedData.content.preset) {
+                        await presetService.createPresetItem(newPreset.id, {
+                            name: item.name,
+                            role: item.role,
+                            type: item.type,
+                            content: item.content,
+                            enabled: item.enabled,
+                            sort_order: importedData.content.preset.indexOf(item),
+                        });
+                    }
+                }
+
+                if (importedData.content && importedData.content.regex) {
+                    for (const regexRule of importedData.content.regex) {
+                        await presetRegexService.createPresetRegexRule(newPreset.id, {
+                            name: regexRule.name,
+                            pattern: regexRule.content.pattern,
+                            replacement: regexRule.content.replacement,
+                            type: regexRule.content.type,
+                            is_active: regexRule.enabled,
+                            sort_order: importedData.content.regex.indexOf(regexRule),
+                        });
+                    }
+                }
+                toast({
+                    variant: 'success',
+                    title: '导入成功',
+                    description: `成功导入预设 "${importedData.name}"`,
+                });
+            }
+            // Case 2: Import regex rules into the selected preset
+            else {
+                if (!selectedPreset) {
+                    toast({
+                        variant: 'error',
+                        title: '导入失败',
+                        description: '请先选择一个预设以导入正则规则',
                     });
+                    return;
+                }
+
+                const rulesToImport = Array.isArray(importedData) ? importedData : [importedData];
+                if (rulesToImport.every(r => r.type === 'regex' && r.content)) {
+                    for (const regexRule of rulesToImport) {
+                        await presetRegexService.createPresetRegexRule(selectedPreset.id, {
+                            name: regexRule.name,
+                            pattern: regexRule.content.pattern,
+                            replacement: regexRule.content.replacement,
+                            type: regexRule.content.type,
+                            is_active: regexRule.enabled,
+                            sort_order: 999, // Appended to the end
+                        });
+                    }
+                    toast({
+                        variant: 'success',
+                        title: '导入成功',
+                        description: `成功向 "${selectedPreset.name}" 导入 ${rulesToImport.length} 条正则规则`,
+                    });
+                } else {
+                    throw new Error('文件格式不兼容。请选择一个预设文件或纯正则规则文件。');
                 }
             }
 
-            if (importedData.content && importedData.content.regex) {
-                for (const regexRule of importedData.content.regex) {
-                    await presetRegexService.createPresetRegexRule(newPreset.id, {
-                        name: regexRule.name,
-                        pattern: regexRule.content.pattern,
-                        replacement: regexRule.content.replacement,
-                        type: regexRule.content.type,
-                        is_active: regexRule.enabled,
-                        sort_order: importedData.content.regex.indexOf(regexRule),
-                    });
-                }
-            }
-            // 重新获取列表以显示包括新导入的预设
+            // Refresh presets list
             await fetchPresets();
 
-            toast({
-                variant: 'success',
-                title: '导入成功',
-                description: `成功导入 1 个预设`,
-            });
         } catch (error) {
             console.error("Import failed:", error);
             toast({
