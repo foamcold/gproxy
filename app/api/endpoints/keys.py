@@ -96,6 +96,31 @@ async def delete_official_key(
     await db.commit()
     return key
 
+@router.patch("/official/{key_id}", response_model=OfficialKeySchema)
+async def update_official_key(
+    *,
+    db: AsyncSession = Depends(deps.get_db),
+    key_id: int,
+    key_in: OfficialKeyUpdate,
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Update official key.
+    """
+    result = await db.execute(select(OfficialKey).filter(OfficialKey.id == key_id, OfficialKey.user_id == current_user.id))
+    key = result.scalars().first()
+    if not key:
+        raise HTTPException(status_code=404, detail="Key not found")
+    
+    update_data = key_in.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(key, field, value)
+        
+    db.add(key)
+    await db.commit()
+    await db.refresh(key)
+    return key
+
 # --- Exclusive Keys ---
 
 @router.get("/exclusive", response_model=PaginatedResponse[ExclusiveKeySchema])
