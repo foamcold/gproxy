@@ -21,6 +21,7 @@ async def read_official_keys(
     db: AsyncSession = Depends(deps.get_db),
     page: int = 1,
     size: int = 10,
+    status: str = "all", # all, normal, abnormal
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
@@ -29,6 +30,19 @@ async def read_official_keys(
     skip = (page - 1) * size
     query = select(OfficialKey).filter(OfficialKey.user_id == current_user.id)
     
+    if status == "normal":
+        # Normal: Active AND (last_status is active OR 200 OR None)
+        query = query.filter(
+            OfficialKey.is_active == True,
+            (OfficialKey.last_status == "active") | (OfficialKey.last_status == "200") | (OfficialKey.last_status == None)
+        )
+    elif status == "abnormal":
+        # Abnormal: Inactive OR (last_status is NOT active AND NOT 200)
+        query = query.filter(
+            (OfficialKey.is_active == False) | 
+            ((OfficialKey.last_status != "active") & (OfficialKey.last_status != "200"))
+        )
+
     # Get total count
     count_query = select(func.count()).select_from(query.subquery())
     total = await db.scalar(count_query)

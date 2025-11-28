@@ -82,6 +82,7 @@ export default function KeysPage() {
 
     const [isOfficialDialogOpen, setIsOfficialDialogOpen] = useState(false);
     const [officialForm, setOfficialForm] = useState({ key: '', is_active: true });
+    const [officialStatusFilter, setOfficialStatusFilter] = useState('all');
 
     // Selection State
     const [selectedExclusiveIds, setSelectedExclusiveIds] = useState<Set<number>>(new Set());
@@ -120,7 +121,7 @@ export default function KeysPage() {
         try {
             const res = await axios.get<PaginatedResponse<OfficialKey>>(`${API_BASE_URL}/keys/official`, {
                 headers: { Authorization: `Bearer ${token}` },
-                params: { page, size }
+                params: { page, size, status: officialStatusFilter }
             });
             setOfficialData(res.data);
             setSelectedOfficialIds(new Set()); // Reset selection on page change
@@ -128,13 +129,16 @@ export default function KeysPage() {
             console.error('Failed to fetch official keys', error);
             toast({ variant: 'error', title: '加载官方密钥失败' });
         }
-    }, [officialData.page, officialData.size, toast]);
+    }, [officialData.page, officialData.size, officialStatusFilter, toast]);
 
     useEffect(() => {
         fetchPresets();
         fetchExclusiveKeys(1, 10);
-        fetchOfficialKeys(1, 10);
     }, []); // Initial load
+
+    useEffect(() => {
+        fetchOfficialKeys(1, 10);
+    }, [officialStatusFilter]);
 
     // Debounced search for exclusive keys
     useEffect(() => {
@@ -361,7 +365,7 @@ export default function KeysPage() {
     const getPresetName = (id: number | null) => presets.find(p => p.id === id)?.name || '-';
 
     return (
-        <div className="space-y-6 p-6">
+        <div className="space-y-6">
             <div className="flex flex-col gap-2">
                 <h1 className="text-3xl font-bold tracking-tight">密钥管理</h1>
                 <p className="text-muted-foreground">
@@ -395,7 +399,7 @@ export default function KeysPage() {
 
                     <Card>
                         <CardContent className="p-0">
-                            <div className="relative w-full">
+                            <div className="relative w-full overflow-x-auto">
                                 <table className="w-full caption-bottom text-sm">
                                     <thead className="[&_tr]:border-b">
                                         <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
@@ -576,6 +580,16 @@ export default function KeysPage() {
                                 <span className="text-muted-foreground">总密钥数</span>
                                 <span className="font-bold">{officialData.total}</span>
                             </div>
+                            <Select value={officialStatusFilter} onValueChange={setOfficialStatusFilter}>
+                                <SelectTrigger className="w-[120px]">
+                                    <SelectValue placeholder="状态筛选" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">全部</SelectItem>
+                                    <SelectItem value="normal">正常</SelectItem>
+                                    <SelectItem value="abnormal">异常</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
                         <div className="flex gap-2">
                             <Button onClick={() => fetchOfficialKeys(officialData.page, officialData.size)} variant="outline" className="h-10">
@@ -624,7 +638,7 @@ export default function KeysPage() {
 
                     <Card>
                         <CardContent className="p-0">
-                            <div className="relative w-full">
+                            <div className="relative w-full overflow-x-auto">
                                 <table className="w-full caption-bottom text-sm">
                                     <thead className="[&_tr]:border-b">
                                         <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
@@ -660,7 +674,10 @@ export default function KeysPage() {
                                                 if (!key.is_active) {
                                                     healthColor = 'text-gray-500';
                                                     healthLabel = '已禁用';
-                                                } else if (key.last_status && key.last_status !== 'active') {
+                                                } else if (key.last_status === '200' || key.last_status === 'active') {
+                                                    healthColor = 'text-green-600';
+                                                    healthLabel = '正常';
+                                                } else if (key.last_status) {
                                                     healthColor = 'text-red-600';
                                                     healthLabel = key.last_status;
                                                 }

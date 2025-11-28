@@ -83,7 +83,7 @@ class GeminiService:
 
         return next_key.key
 
-    async def update_key_status(self, db: AsyncSession, key_str: str, status: str):
+    async def update_key_status(self, db: AsyncSession, key_str: str, status: str, input_tokens: int = 0, output_tokens: int = 0):
         result = await db.execute(select(OfficialKey).filter(OfficialKey.key == key_str))
         key = result.scalars().first()
         if key:
@@ -98,6 +98,11 @@ class GeminiService:
                 if key.error_count is None:
                     key.error_count = 0
                 key.error_count += 1
+            
+            # Update total tokens
+            if key.total_tokens is None:
+                key.total_tokens = 0
+            key.total_tokens += (input_tokens + output_tokens)
             
             await db.commit()
 

@@ -356,7 +356,8 @@ async def chat_completions(
         user_id=user.id if user else None,
         model=model,
         status="pending",
-        is_stream=openai_request.stream
+        is_stream=openai_request.stream,
+        input_tokens=len(json.dumps(body)) // 4
     )
     db.add(log_entry)
     await db.commit()
@@ -442,7 +443,13 @@ async def chat_completions(
             
             # 更新密钥状态
             if response.status_code:
-                await gemini_service.update_key_status(db, official_key, str(response.status_code))
+                await gemini_service.update_key_status(
+                    db, 
+                    official_key, 
+                    str(response.status_code),
+                    input_tokens=log_entry.input_tokens,
+                    output_tokens=log_entry.output_tokens
+                )
 
             await response.aclose()
             
@@ -461,7 +468,12 @@ async def chat_completions(
                 # 将 Gemini 错误转换为 OpenAI 格式并直接返回 JSON
                 openai_error = converter.gemini_error_to_openai(error_content, response.status_code)
                 # 在返回前更新密钥状态
-                await gemini_service.update_key_status(db, official_key, str(response.status_code))
+                await gemini_service.update_key_status(
+                    db, 
+                    official_key, 
+                    str(response.status_code),
+                    input_tokens=log_entry.input_tokens
+                )
                 return JSONResponse(content=openai_error, status_code=response.status_code)
             
             return StreamingResponse(response_generator(response), media_type="text/event-stream")
@@ -470,7 +482,12 @@ async def chat_completions(
             log_entry.status = "error"
             log_entry.status_code = 500
             await db.commit()
-            await gemini_service.update_key_status(db, official_key, "500")
+            await gemini_service.update_key_status(
+                db, 
+                official_key, 
+                "500",
+                input_tokens=log_entry.input_tokens
+            )
             raise HTTPException(status_code=500, detail=str(e))
     else:
         # Non-streaming logic
@@ -490,7 +507,12 @@ async def chat_completions(
                 # 将 Gemini 错误转换为 OpenAI 格式
                 openai_error = converter.gemini_error_to_openai(response.content, response.status_code)
                 # 在返回前更新密钥状态
-                await gemini_service.update_key_status(db, official_key, str(response.status_code))
+                await gemini_service.update_key_status(
+                    db, 
+                    official_key, 
+                    str(response.status_code),
+                    input_tokens=log_entry.input_tokens
+                )
                 return JSONResponse(content=openai_error, status_code=response.status_code)
             
             gemini_response = response.json()
@@ -521,15 +543,27 @@ async def chat_completions(
             log_entry.status = "ok"
             log_entry.status_code = 200
             log_entry.latency = time.time() - start_time
+            log_entry.output_tokens = len(json.dumps(openai_response)) // 4
             await db.commit()
 
             # 更新密钥状态
-            await gemini_service.update_key_status(db, official_key, str(response.status_code))
+            await gemini_service.update_key_status(
+                db, 
+                official_key, 
+                str(response.status_code),
+                input_tokens=log_entry.input_tokens,
+                output_tokens=log_entry.output_tokens
+            )
             
             return JSONResponse(content=openai_response)
         except Exception as e:
              log_entry.status = "error"
              log_entry.status_code = 500
              await db.commit()
-             await gemini_service.update_key_status(db, official_key, "500")
+             await gemini_service.update_key_status(
+                 db, 
+                 official_key, 
+                 "500",
+                 input_tokens=log_entry.input_tokens
+             )
              raise HTTPException(status_code=500, detail=str(e))
