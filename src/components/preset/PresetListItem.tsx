@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { confirm } from '@/components/ui/ConfirmDialog';
 import type { Preset } from '@/services/presetService';
 
 interface PresetListItemProps {
@@ -128,9 +129,11 @@ export function PresetListItem({
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7 text-destructive"
-                    onClick={(e) => {
+                    onClick={async (e) => {
                         e.stopPropagation();
-                        onDelete(preset.id);
+                        if (await confirm({ title: "删除预设项", description: "确定要删除这个预设项吗？", confirmText: "删除" })) {
+                            onDelete(preset.id);
+                        }
                     }}
                 >
                     <Trash2 className="w-3 h-3" />

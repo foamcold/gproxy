@@ -23,6 +23,7 @@ import {
 import { useToast } from '@/hooks/useToast';
 import { exportToJSON, importFromJSON } from '@/utils/exportImport';
 import { cn } from '@/lib/utils';
+import { confirm } from '@/components/ui/ConfirmDialog';
 
 interface RegexRule {
     id: number;
@@ -247,7 +248,7 @@ export default function RegexPage() {
     };
 
     const handleDelete = async (id: number) => {
-        if (!confirm('确定要删除此规则吗?')) return;
+        if (!await confirm({ title: "删除规则", description: "确定要删除此正则规则吗？", confirmText: "删除" })) return;
         const token = localStorage.getItem('token');
         try {
             await axios.delete(`${API_BASE_URL}/regex/${id}`, {

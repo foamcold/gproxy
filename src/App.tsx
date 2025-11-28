@@ -12,6 +12,7 @@ import SettingsPage from './pages/dashboard/SettingsPage';
 import AdminUsersPage from './pages/dashboard/AdminUsersPage';
 import SystemPage from './pages/dashboard/SystemPage';
 import { Toaster } from './components/ui/toaster';
+import { ConfirmDialog } from './components/ui/ConfirmDialog';
 
 function App() {
     return (
@@ -33,6 +34,7 @@ function App() {
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
             <Toaster />
+            <ConfirmDialog />
         </BrowserRouter>
     );
 }

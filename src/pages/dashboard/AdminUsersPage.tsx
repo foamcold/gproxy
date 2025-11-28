@@ -16,6 +16,7 @@ import {
 import { useToast } from '@/hooks/useToast';
 import { Search, UserPlus, Ban, Trash2, UserCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { confirm } from '@/components/ui/ConfirmDialog';
 
 interface User {
     id: number;
@@ -105,10 +106,19 @@ export default function AdminUsersPage() {
         }
     };
 
-    const handleToggleActive = async (userId: number) => {
+    const handleToggleActive = async (user: User) => {
+        if (user.is_active) {
+            if (!await confirm({
+                title: "禁用用户",
+                description: `确定要禁用用户 "${user.username}" 吗？禁用后该用户将无法登录。`,
+                confirmText: "禁用",
+                cancelText: "取消"
+            })) return;
+        }
+
         const token = localStorage.getItem('token');
         try {
-            await axios.put(`${API_BASE_URL}/users/${userId}/toggle-active`, {}, {
+            await axios.put(`${API_BASE_URL}/users/${user.id}/toggle-active`, {}, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             fetchUsers();
@@ -126,7 +136,7 @@ export default function AdminUsersPage() {
     };
 
     const handleDelete = async (userId: number, username: string) => {
-        if (!confirm(`确定要注销用户 "${username}" 吗？此操作会将用户设置为不活跃状态。`)) return;
+        if (!await confirm({ title: "注销用户", description: `确定要注销用户 "${username}" 吗？此操作会将用户设置为不活跃状态。`, confirmText: "注销" })) return;
 
         const token = localStorage.getItem('token');
         try {
@@ -293,7 +303,7 @@ export default function AdminUsersPage() {
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
-                                                onClick={() => handleToggleActive(user.id)}
+                                                onClick={() => handleToggleActive(user)}
                                                 title={user.is_active ? '禁用用户' : '启用用户'}
                                             >
                                                 {user.is_active ? (

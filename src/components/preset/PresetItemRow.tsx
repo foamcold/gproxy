@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { PresetItem } from '@/services/presetService';
 import { Switch } from '@/components/ui/switch';
+import { confirm } from '@/components/ui/ConfirmDialog';
 
 interface PresetItemRowProps {
     item: PresetItem;
@@ -116,7 +117,11 @@ export function PresetItemRow({ item, onEdit, onDelete, onDuplicate, onToggle }:
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-destructive"
-                        onClick={() => item.id && onDelete(item.id)}
+                        onClick={async () => {
+                            if (item.id && await confirm({ title: "删除消息", description: "确定要删除这条消息吗？", confirmText: "删除" })) {
+                                onDelete(item.id);
+                            }
+                        }}
                     >
                         <Trash2 className="w-4 h-4" />
                     </Button>

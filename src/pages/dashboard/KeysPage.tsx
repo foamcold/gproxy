@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/useToast';
 import { cn } from '@/lib/utils';
+import { confirm } from '@/components/ui/ConfirmDialog';
 
 interface ExclusiveKey {
     id: number;
@@ -153,7 +154,7 @@ export default function KeysPage() {
     };
 
     const handleDeleteExclusive = async (id: number) => {
-        if (!confirm('删除此专属密钥?')) return;
+        if (!await confirm({ title: "删除密钥", description: "确定要删除此专属密钥吗？", confirmText: "删除" })) return;
         const token = localStorage.getItem('token');
         try {
             await axios.delete(`${API_BASE_URL}/keys/exclusive/${id}`, {
@@ -198,7 +199,7 @@ export default function KeysPage() {
     };
 
     const handleDeleteOfficial = async (id: number, name: string) => {
-        if (!confirm(`确定要删除密钥 "${name}" 吗？`)) return;
+        if (!await confirm({ title: "删除密钥", description: `确定要删除此官方密钥吗？`, confirmText: "删除" })) return;
         const token = localStorage.getItem('token');
         try {
             await axios.delete(`${API_BASE_URL}/keys/official/${id}`, {

@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { confirm } from '@/components/ui/ConfirmDialog';
 
 export default function PresetsPage() {
     const [presets, setPresets] = useState<Preset[]>([]);
@@ -153,7 +154,7 @@ export default function PresetsPage() {
     // 删除预设
     const handleDelete = async () => {
         if (!selectedPreset) return;
-        if (!confirm(`确定要删除预设 "${selectedPreset.name}" 吗？`)) return;
+        if (!await confirm({ title: "删除预设", description: `确定要删除预设 "${selectedPreset.name}" 吗？`, confirmText: "删除", cancelText: "取消" })) return;
 
         try {
             await presetService.deletePreset(selectedPreset.id);
@@ -416,7 +417,7 @@ export default function PresetsPage() {
                                             onClick={async (e) => {
                                                 e.stopPropagation();
                                                 e.preventDefault();
-                                                if (confirm(`确定要删除预设 "${preset.name}" 吗？`)) {
+                                                if (await confirm({ title: "删除预设", description: `确定要删除预设 "${preset.name}" 吗？`, confirmText: "删除", cancelText: "取消" })) {
                                                     try {
                                                         await presetService.deletePreset(preset.id);
                                                         const newPresets = presets.filter((p) => p.id !== preset.id);

@@ -29,6 +29,7 @@ import { presetRegexService, type PresetRegexRule } from '@/services/presetRegex
 import { exportToJSON, importFromJSON } from '@/utils/exportImport';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
+import { confirm } from '@/components/ui/ConfirmDialog';
 
 interface SortableRuleItemProps {
     rule: PresetRegexRule;
@@ -244,7 +245,7 @@ export function PresetRegexPage({ presetId }: PresetRegexPageProps) {
     };
 
     const handleDelete = async (id: number) => {
-        if (!confirm('确定要删除此规则吗?')) return;
+        if (!await confirm({ title: "删除规则", description: "确定要删除此正则规则吗？", confirmText: "删除" })) return;
         try {
             await presetRegexService.deletePresetRegexRule(presetId, id);
             fetchRules();
