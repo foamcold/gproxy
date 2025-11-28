@@ -36,3 +36,6 @@ class SystemConfig(Base):
 
     # 日志配置
     log_level = Column(String, default="INFO") # DEBUG, INFO, WARNING, ERROR
+
+    # 密钥轮询配置
+    last_used_official_key_id = Column(Integer, nullable=True)

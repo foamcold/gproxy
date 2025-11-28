@@ -1,10 +1,10 @@
 import httpx
 import logging
-import random
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.models.key import OfficialKey
+from app.models.system_config import SystemConfig
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -26,18 +26,47 @@ class GeminiService:
 
     async def get_active_key(self, db: AsyncSession) -> str:
         """
-        Get an active official key using round-robin or random strategy.
-        For now, we use random for simplicity, but we should implement proper round-robin.
+        Get an active official key using a sequential round-robin strategy.
+        It retrieves the next key based on the last used key ID stored in SystemConfig.
         """
-        result = await db.execute(select(OfficialKey).filter(OfficialKey.is_active == True))
+        # 1. Get all active keys, sorted by ID
+        result = await db.execute(select(OfficialKey).filter(OfficialKey.is_active == True).order_by(OfficialKey.id))
         keys = result.scalars().all()
         
         if not keys:
             raise HTTPException(status_code=503, detail="No active official keys available")
-            
-        # Simple random selection for now
-        selected_key = random.choice(keys)
-        return selected_key.key
+
+        # 2. Get system config to find the last used key ID
+        config_result = await db.execute(select(SystemConfig))
+        config = config_result.scalars().first()
+        if not config:
+            # This should not happen in a properly initialized system, but handle it gracefully
+            config = SystemConfig()
+            db.add(config)
+        
+        last_key_id = config.last_used_official_key_id
+
+        # 3. Find the next key
+        next_key = None
+        if last_key_id:
+            try:
+                # Find the index of the last used key
+                last_key_index = next(i for i, key in enumerate(keys) if key.id == last_key_id)
+                # Get the next index, wrapping around if necessary
+                next_key_index = (last_key_index + 1) % len(keys)
+                next_key = keys[next_key_index]
+            except StopIteration:
+                # If last_key_id is not in the active key list (e.g., it was deleted), start from the first key
+                next_key = keys[0]
+        else:
+            # If no key was used before, start from the first one
+            next_key = keys[0]
+
+        # 4. Update the last used key ID in the config
+        config.last_used_official_key_id = next_key.id
+        await db.commit()
+
+        return next_key.key
 
     async def update_key_status(self, db: AsyncSession, key_str: str, status: str):
         result = await db.execute(select(OfficialKey).filter(OfficialKey.key == key_str))
