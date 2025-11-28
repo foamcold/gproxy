@@ -118,7 +118,7 @@ export function PresetItemRow({ item, onEdit, onDelete, onDuplicate, onToggle }:
                         size="icon"
                         className="h-8 w-8 text-destructive"
                         onClick={async () => {
-                            if (item.id && await confirm({ title: "删除消息", description: "确定要删除这条消息吗？", confirmText: "删除" })) {
+                            if (item.id && await confirm({ title: "删除条目", description: "确定要删除这个条目吗？", confirmText: "删除" })) {
                                 onDelete(item.id);
                             }
                         }}
