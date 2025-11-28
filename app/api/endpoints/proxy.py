@@ -152,14 +152,21 @@ async def chat_completions(
     # 3. Load User Context (Presets, Regex) if user exists
     presets = []
     regex_rules = []
-    if user:
-        # Load Presets
-        result = await db.execute(select(Preset).filter(Preset.user_id == user.id, Preset.is_active == True).order_by(Preset.sort_order))
-        presets = result.scalars().all()
+    
+    if exclusive_key:
+        # Load Linked Preset
+        if exclusive_key.preset_id:
+            result = await db.execute(select(Preset).filter(Preset.id == exclusive_key.preset_id))
+            preset = result.scalars().first()
+            if preset:
+                presets.append(preset)
         
-        # Load Regex Rules
-        result = await db.execute(select(RegexRule).filter(RegexRule.user_id == user.id, RegexRule.is_active == True).order_by(RegexRule.sort_order))
-        regex_rules = result.scalars().all()
+        # Load Linked Regex Rule
+        if exclusive_key.regex_id:
+            result = await db.execute(select(RegexRule).filter(RegexRule.id == exclusive_key.regex_id))
+            regex_rule = result.scalars().first()
+            if regex_rule:
+                regex_rules.append(regex_rule)
 
     # 4. Apply Presets (Inject into messages)
     if presets and openai_request.messages:
@@ -192,6 +199,10 @@ async def chat_completions(
                     item_type = item.get('type', 'normal')
                     item_role = item.get('role', 'system')
                     item_content = item.get('content', '')
+                    item_enabled = item.get('enabled', True)
+
+                    if not item_enabled:
+                        continue
                     
                     if item_type == 'normal':
                         # 直接注入普通条目

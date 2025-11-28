@@ -73,6 +73,7 @@ export function PresetItemEditor({ preset, onUpdatePreset }: PresetItemEditorPro
             name: '新建条目',
             content: '',
             order: localItems.length,
+            enabled: true,
         };
         setEditingItem(newItem);
         setIsDialogOpen(true);
@@ -112,8 +113,16 @@ export function PresetItemEditor({ preset, onUpdatePreset }: PresetItemEditorPro
             id: presetService.generateItemId(),
             name: `${item.name} (副本)`,
             order: localItems.length,
+            enabled: item.enabled !== false, // Copy enabled state
         };
         const newItems = [...localItems, newItem];
+        updateItems(newItems);
+    };
+
+    const handleToggleEnabled = (item: PresetItem, enabled: boolean) => {
+        const newItems = localItems.map((i) =>
+            i.id === item.id ? { ...i, enabled } : i
+        );
         updateItems(newItems);
     };
 
@@ -160,6 +169,7 @@ export function PresetItemEditor({ preset, onUpdatePreset }: PresetItemEditorPro
                                         onEdit={handleEditItem}
                                         onDelete={handleDeleteItem}
                                         onDuplicate={handleDuplicateItem}
+                                        onToggle={handleToggleEnabled}
                                     />
                                 ))}
                             </div>

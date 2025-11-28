@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Switch } from '@/components/ui/switch';
 import {
     Dialog,
     DialogContent,
@@ -170,11 +171,21 @@ export function PresetItemEditDialog({
                     )}
                 </div>
 
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>
-                        取消
-                    </Button>
-                    <Button onClick={handleSave}>保存</Button>
+                <DialogFooter className="sm:justify-between">
+                    <div className="flex items-center gap-2">
+                        <Switch
+                            id="item-enabled"
+                            checked={formData.enabled !== false}
+                            onCheckedChange={(checked) => setFormData({ ...formData, enabled: checked })}
+                        />
+                        <Label htmlFor="item-enabled" className="cursor-pointer">启用此条目</Label>
+                    </div>
+                    <div className="flex gap-2">
+                        <Button variant="outline" onClick={() => onOpenChange(false)}>
+                            取消
+                        </Button>
+                        <Button onClick={handleSave}>保存</Button>
+                    </div>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

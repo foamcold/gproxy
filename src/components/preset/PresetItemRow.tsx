@@ -4,12 +4,14 @@ import { GripVertical, Pencil, Trash2, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { PresetItem } from '@/services/presetService';
+import { Switch } from '@/components/ui/switch';
 
 interface PresetItemRowProps {
     item: PresetItem;
     onEdit: (item: PresetItem) => void;
     onDelete: (itemId: string) => void;
     onDuplicate: (item: PresetItem) => void;
+    onToggle: (item: PresetItem, enabled: boolean) => void;
 }
 
 const roleIcons = {
@@ -30,7 +32,7 @@ const typeColors = {
     history: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-100',
 };
 
-export function PresetItemRow({ item, onEdit, onDelete, onDuplicate }: PresetItemRowProps) {
+export function PresetItemRow({ item, onEdit, onDelete, onDuplicate, onToggle }: PresetItemRowProps) {
     const {
         attributes,
         listeners,
@@ -76,38 +78,49 @@ export function PresetItemRow({ item, onEdit, onDelete, onDuplicate }: PresetIte
                     <span className={cn("px-2 py-0.5 rounded-full text-xs", typeColors[item.type])}>
                         {typeLabels[item.type]}
                     </span>
+                    {item.enabled === false && (
+                        <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded">未启用</span>
+                    )}
                 </div>
                 <p className="text-sm text-muted-foreground truncate">
                     {item.content || '(无内容)'}
                 </p>
             </div>
 
-            {/* 操作按钮 */}
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => onEdit(item)}
-                >
-                    <Pencil className="w-4 h-4" />
-                </Button>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => onDuplicate(item)}
-                >
-                    <Copy className="w-4 h-4" />
-                </Button>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-destructive"
-                    onClick={() => item.id && onDelete(item.id)}
-                >
-                    <Trash2 className="w-4 h-4" />
-                </Button>
+            {/* 开关和操作按钮 */}
+            <div className="flex items-center gap-2">
+                <Switch
+                    checked={item.enabled !== false}
+                    onCheckedChange={(checked) => onToggle(item, checked)}
+                    onClick={(e) => e.stopPropagation()}
+                />
+
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => onEdit(item)}
+                    >
+                        <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => onDuplicate(item)}
+                    >
+                        <Copy className="w-4 h-4" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive"
+                        onClick={() => item.id && onDelete(item.id)}
+                    >
+                        <Trash2 className="w-4 h-4" />
+                    </Button>
+                </div>
             </div>
         </div>
     );

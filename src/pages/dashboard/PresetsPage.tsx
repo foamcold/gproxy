@@ -5,8 +5,6 @@ import { useToast } from '@/hooks/useToast';
 import { presetService, type Preset, type PresetContent } from '@/services/presetService';
 import { exportToJSON, importFromJSON } from '@/utils/exportImport';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import {
     Select,
     SelectContent,
@@ -37,7 +35,6 @@ export default function PresetsPage() {
     const [presets, setPresets] = useState<Preset[]>([]);
     const [selectedPreset, setSelectedPreset] = useState<Preset | null>(null);
     const [loading, setLoading] = useState(true);
-    const [globalEnabled, setGlobalEnabled] = useState(false);
 
     // Rename Dialog State
     const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
@@ -108,27 +105,6 @@ export default function PresetsPage() {
         }
     };
 
-    // 切换预设启用状态 (Current Selected)
-    const handleToggleActive = async (checked: boolean) => {
-        if (!selectedPreset) return;
-        try {
-            await presetService.updatePreset(selectedPreset.id, {
-                name: selectedPreset.name,
-                content: selectedPreset.content,
-                is_active: checked,
-                sort_order: selectedPreset.sort_order,
-            });
-
-            const updatedPreset = { ...selectedPreset, is_active: checked };
-            setPresets(presets.map((p) => (p.id === selectedPreset.id ? updatedPreset : p)));
-            setSelectedPreset(updatedPreset);
-        } catch (error) {
-            toast({
-                variant: 'error',
-                title: '更新失败',
-            });
-        }
-    };
 
     // 打开重命名弹窗
     const openRenameDialog = () => {
@@ -309,19 +285,9 @@ export default function PresetsPage() {
 
     return (
         <div className="flex flex-col h-[calc(100vh-8rem)] gap-4">
-            {/* 顶部栏：标题和全局开关 */}
+            {/* 顶部栏：标题 */}
             <div className="flex items-center justify-between px-4">
                 <h1 className="text-3xl font-bold tracking-tight">预设</h1>
-                <div className="flex items-center gap-2 bg-muted px-3 py-1.5 rounded-md">
-                    <Label htmlFor="preset-global-switch" className="text-sm font-medium cursor-pointer">
-                        {globalEnabled ? '已启用' : '已禁用'}
-                    </Label>
-                    <Switch
-                        id="preset-global-switch"
-                        checked={globalEnabled}
-                        onCheckedChange={setGlobalEnabled}
-                    />
-                </div>
             </div>
 
             {/* 功能工具栏 */}
@@ -348,19 +314,6 @@ export default function PresetsPage() {
                     </Select>
                 </div>
 
-                {/* 预设开关 (仅针对当前选中) */}
-                {selectedPreset && (
-                    <div className="flex items-center gap-2 border-l pl-4">
-                        <Label htmlFor="current-preset-switch" className="text-sm cursor-pointer">
-                            启用此预设
-                        </Label>
-                        <Switch
-                            id="current-preset-switch"
-                            checked={selectedPreset.is_active}
-                            onCheckedChange={handleToggleActive}
-                        />
-                    </div>
-                )}
 
                 {/* 操作按钮组 */}
                 <div className="flex items-center gap-1 ml-auto">

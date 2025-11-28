@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from '@/utils/api';
-import { Plus, Trash2, Copy, RefreshCw, Activity, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, Copy, RefreshCw, Activity, AlertCircle, Search, Pencil, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,15 +15,23 @@ import {
     DialogTrigger,
     DialogFooter,
 } from '@/components/ui/dialog';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { useToast } from '@/hooks/useToast';
 import { cn } from '@/lib/utils';
-
 
 interface ExclusiveKey {
     id: number;
     key: string;
     name: string;
     is_active: boolean;
+    preset_id: number | null;
+    regex_id: number | null;
 }
 
 interface OfficialKey {
@@ -37,67 +45,112 @@ interface OfficialKey {
     created_at: string;
 }
 
-export default function KeysPage() {
-    // 专属密钥状态
-    const [exclusiveKeys, setExclusiveKeys] = useState<ExclusiveKey[]>([]);
-    const [isExclusiveDialogOpen, setIsExclusiveDialogOpen] = useState(false);
-    const [exclusiveForm, setExclusiveForm] = useState({ name: '', is_active: true });
+interface Preset {
+    id: number;
+    name: string;
+}
 
-    // 官方密钥状态
+interface RegexRule {
+    id: number;
+    name: string;
+}
+
+export default function KeysPage() {
+    // Data State
+    const [exclusiveKeys, setExclusiveKeys] = useState<ExclusiveKey[]>([]);
     const [officialKeys, setOfficialKeys] = useState<OfficialKey[]>([]);
+    const [presets, setPresets] = useState<Preset[]>([]);
+    const [regexRules, setRegexRules] = useState<RegexRule[]>([]);
+
+    // UI State
+    const [searchQuery, setSearchQuery] = useState('');
+    const [isExclusiveDialogOpen, setIsExclusiveDialogOpen] = useState(false);
+    const [editingKey, setEditingKey] = useState<ExclusiveKey | null>(null);
+    const [exclusiveForm, setExclusiveForm] = useState({
+        name: '',
+        is_active: true,
+        preset_id: 'none',
+        regex_id: 'none'
+    });
+
     const [isOfficialDialogOpen, setIsOfficialDialogOpen] = useState(false);
     const [officialForm, setOfficialForm] = useState({ name: '', key: '', is_active: true });
 
     const { toast } = useToast();
 
-    // 获取专属密钥
-    const fetchExclusiveKeys = async () => {
+    // Fetch Data
+    const fetchData = async () => {
         const token = localStorage.getItem('token');
         const headers = { Authorization: `Bearer ${token}` };
 
         try {
-            const exclusiveRes = await axios.get(`${API_BASE_URL}/keys/exclusive`, { headers });
-            setExclusiveKeys(exclusiveRes.data);
-        } catch (error) {
-            console.error('Failed to fetch exclusive keys', error);
-        }
-    };
+            const [exRes, offRes, preRes, regRes] = await Promise.all([
+                axios.get<ExclusiveKey[]>(`${API_BASE_URL}/keys/exclusive`, { headers }),
+                axios.get<OfficialKey[]>(`${API_BASE_URL}/keys/official`, { headers }),
+                axios.get<Preset[]>(`${API_BASE_URL}/presets/`, { headers }),
+                axios.get<RegexRule[]>(`${API_BASE_URL}/regex/`, { headers })
+            ]);
 
-    // 获取官方密钥
-    const fetchOfficialKeys = async () => {
-        try {
-            const token = localStorage.getItem('token');
-            const response = await axios.get<OfficialKey[]>(`${API_BASE_URL}/keys/official`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setOfficialKeys(response.data);
+            setExclusiveKeys(exRes.data);
+            setOfficialKeys(offRes.data);
+            setPresets(preRes.data);
+            setRegexRules(regRes.data);
         } catch (error) {
-            toast({
-                variant: 'error',
-                title: '加载失败',
-                description: '无法加载官方密钥列表',
-            });
+            console.error('Failed to fetch data', error);
+            toast({ variant: 'error', title: '加载数据失败' });
         }
     };
 
     useEffect(() => {
-        fetchExclusiveKeys();
-        fetchOfficialKeys();
+        fetchData();
     }, []);
 
-    // 专属密钥操作
-    const handleCreateExclusive = async (e: React.FormEvent) => {
+    // Exclusive Key Actions
+    const handleOpenExclusiveDialog = (key: ExclusiveKey | null = null) => {
+        if (key) {
+            setEditingKey(key);
+            setExclusiveForm({
+                name: key.name || '',
+                is_active: key.is_active,
+                preset_id: key.preset_id?.toString() || 'none',
+                regex_id: key.regex_id?.toString() || 'none'
+            });
+        } else {
+            setEditingKey(null);
+            setExclusiveForm({
+                name: '',
+                is_active: true,
+                preset_id: 'none',
+                regex_id: 'none'
+            });
+        }
+        setIsExclusiveDialogOpen(true);
+    };
+
+    const handleSaveExclusive = async (e: React.FormEvent) => {
         e.preventDefault();
         const token = localStorage.getItem('token');
+        const headers = { Authorization: `Bearer ${token}` };
+
+        const payload = {
+            name: exclusiveForm.name,
+            is_active: exclusiveForm.is_active,
+            preset_id: exclusiveForm.preset_id === 'none' ? null : parseInt(exclusiveForm.preset_id),
+            regex_id: exclusiveForm.regex_id === 'none' ? null : parseInt(exclusiveForm.regex_id)
+        };
+
         try {
-            await axios.post(`${API_BASE_URL}/keys/exclusive`, exclusiveForm, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            if (editingKey) {
+                await axios.patch(`${API_BASE_URL}/keys/exclusive/${editingKey.id}`, payload, { headers });
+                toast({ variant: 'success', title: '更新成功' });
+            } else {
+                await axios.post(`${API_BASE_URL}/keys/exclusive`, payload, { headers });
+                toast({ variant: 'success', title: '创建成功' });
+            }
             setIsExclusiveDialogOpen(false);
-            setExclusiveForm({ name: '', is_active: true });
-            fetchExclusiveKeys();
+            fetchData();
         } catch (error) {
-            console.error('Failed to create exclusive key', error);
+            toast({ variant: 'error', title: editingKey ? '更新失败' : '创建失败' });
         }
     };
 
@@ -108,13 +161,14 @@ export default function KeysPage() {
             await axios.delete(`${API_BASE_URL}/keys/exclusive/${id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            fetchExclusiveKeys();
+            fetchData();
+            toast({ variant: 'success', title: '删除成功' });
         } catch (error) {
-            console.error('Failed to delete exclusive key', error);
+            toast({ variant: 'error', title: '删除失败' });
         }
     };
 
-    // 官方密钥操作
+    // Official Key Actions
     const handleCreateOfficial = async (e: React.FormEvent) => {
         e.preventDefault();
         const token = localStorage.getItem('token');
@@ -124,16 +178,10 @@ export default function KeysPage() {
             });
             setIsOfficialDialogOpen(false);
             setOfficialForm({ name: '', key: '', is_active: true });
-            fetchOfficialKeys();
-            toast({
-                variant: 'success',
-                title: '添加成功',
-            });
+            fetchData();
+            toast({ variant: 'success', title: '添加成功' });
         } catch (error) {
-            toast({
-                variant: 'error',
-                title: '添加失败',
-            });
+            toast({ variant: 'error', title: '添加失败' });
         }
     };
 
@@ -144,57 +192,40 @@ export default function KeysPage() {
                 { is_active: isActive },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
-            fetchOfficialKeys();
-            toast({
-                variant: 'success',
-                title: '状态已更新',
-            });
+            fetchData();
+            toast({ variant: 'success', title: '状态已更新' });
         } catch (error) {
-            toast({
-                variant: 'error',
-                title: '更新失败',
-            });
+            toast({ variant: 'error', title: '更新失败' });
         }
     };
 
     const handleDeleteOfficial = async (id: number, name: string) => {
         if (!confirm(`确定要删除密钥 "${name}" 吗？`)) return;
-
         const token = localStorage.getItem('token');
         try {
             await axios.delete(`${API_BASE_URL}/keys/official/${id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            fetchOfficialKeys();
-            toast({
-                variant: 'success',
-                title: '删除成功',
-            });
+            fetchData();
+            toast({ variant: 'success', title: '删除成功' });
         } catch (error) {
-            toast({
-                variant: 'error',
-                title: '删除失败',
-            });
+            toast({ variant: 'error', title: '删除失败' });
         }
     };
 
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text);
+        toast({ title: '已复制到剪贴板' });
     };
 
-    const calculateSuccessRate = (key: OfficialKey): string => {
-        if (key.total_requests === 0) return '0';
-        return ((key.total_requests - key.failed_requests) / key.total_requests * 100).toFixed(1);
-    };
+    // Helpers
+    const filteredExclusiveKeys = exclusiveKeys.filter(key =>
+        key.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        key.key.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
-    const getHealthStatus = (key: OfficialKey) => {
-        const successRate = parseFloat(calculateSuccessRate(key));
-        if (!key.is_active) return { label: '已禁用', color: 'text-gray-500' };
-        if (successRate >= 95) return { label: '健康', color: 'text-green-600' };
-        if (successRate >= 80) return { label: '良好', color: 'text-blue-600' };
-        if (successRate >= 60) return { label: '一般', color: 'text-yellow-600' };
-        return { label: '异常', color: 'text-red-600' };
-    };
+    const getPresetName = (id: number | null) => presets.find(p => p.id === id)?.name || '-';
+    const getRegexName = (id: number | null) => regexRules.find(r => r.id === id)?.name || '-';
 
     return (
         <div className="space-y-6">
@@ -211,67 +242,150 @@ export default function KeysPage() {
                     <TabsTrigger value="official">官方密钥</TabsTrigger>
                 </TabsList>
 
-                {/* 专属密钥Tab */}
+                {/* Exclusive Keys Tab */}
                 <TabsContent value="exclusive" className="space-y-4">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <h2 className="text-2xl font-bold tracking-tight">专属密钥</h2>
-                            <p className="text-muted-foreground">您访问代理的个人密钥。</p>
+                    <div className="flex justify-between items-center gap-4">
+                        <div className="relative flex-1 max-w-md">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="搜索密钥名称或 Key..."
+                                className="pl-9"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
                         </div>
-                        <Dialog open={isExclusiveDialogOpen} onOpenChange={setIsExclusiveDialogOpen}>
-                            <DialogTrigger asChild>
-                                <Button>
-                                    <Plus className="w-4 h-4 mr-2" />
-                                    生成密钥
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                                <DialogHeader>
-                                    <DialogTitle>生成专属密钥</DialogTitle>
-                                </DialogHeader>
-                                <form onSubmit={handleCreateExclusive} className="space-y-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="ex-name">名称 (可选)</Label>
-                                        <Input
-                                            id="ex-name"
-                                            value={exclusiveForm.name}
-                                            onChange={(e) => setExclusiveForm({ ...exclusiveForm, name: e.target.value })}
-                                            placeholder="My App Key"
-                                        />
-                                    </div>
-                                    <DialogFooter>
-                                        <Button type="submit">生成</Button>
-                                    </DialogFooter>
-                                </form>
-                            </DialogContent>
-                        </Dialog>
+                        <Button onClick={() => handleOpenExclusiveDialog()}>
+                            <Plus className="w-4 h-4 mr-2" />
+                            生成密钥
+                        </Button>
                     </div>
 
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {exclusiveKeys.map((key) => (
-                            <div key={key.id} className="bg-card border rounded-lg p-4 space-y-3">
-                                <div className="flex justify-between items-start">
-                                    <div className="font-medium">{key.name || '未命名密钥'}</div>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteExclusive(key.id)}>
-                                        <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                </div>
-                                <div className="bg-muted p-2 rounded text-xs font-mono break-all flex items-center justify-between gap-2">
-                                    <span>{key.key}</span>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => copyToClipboard(key.key)}>
-                                        <Copy className="w-3 h-3" />
-                                    </Button>
-                                </div>
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <div className={cn("w-2 h-2 rounded-full", key.is_active ? "bg-green-500" : "bg-red-500")} />
-                                    {key.is_active ? "启用" : "未启用"}
-                                </div>
-                            </div>
-                        ))}
+                    <div className="border rounded-md">
+                        <div className="relative w-full overflow-auto">
+                            <table className="w-full caption-bottom text-sm">
+                                <thead className="[&_tr]:border-b">
+                                    <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
+                                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">名称</th>
+                                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Key</th>
+                                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">绑定预设</th>
+                                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">绑定正则</th>
+                                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">状态</th>
+                                        <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="[&_tr:last-child]:border-0">
+                                    {filteredExclusiveKeys.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={6} className="p-4 text-center text-muted-foreground">
+                                                没有找到密钥
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        filteredExclusiveKeys.map((key) => (
+                                            <tr key={key.id} className="border-b transition-colors hover:bg-muted/50">
+                                                <td className="p-4 align-middle font-medium">{key.name || '未命名'}</td>
+                                                <td className="p-4 align-middle">
+                                                    <div className="flex items-center gap-2">
+                                                        <code className="relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm">
+                                                            {key.key.substring(0, 12)}...
+                                                        </code>
+                                                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(key.key)}>
+                                                            <Copy className="w-3 h-3" />
+                                                        </Button>
+                                                    </div>
+                                                </td>
+                                                <td className="p-4 align-middle">{getPresetName(key.preset_id)}</td>
+                                                <td className="p-4 align-middle">{getRegexName(key.regex_id)}</td>
+                                                <td className="p-4 align-middle">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className={cn("w-2 h-2 rounded-full", key.is_active ? "bg-green-500" : "bg-red-500")} />
+                                                        {key.is_active ? "启用" : "禁用"}
+                                                    </div>
+                                                </td>
+                                                <td className="p-4 align-middle text-right">
+                                                    <div className="flex justify-end gap-2">
+                                                        <Button variant="ghost" size="icon" onClick={() => handleOpenExclusiveDialog(key)}>
+                                                            <Pencil className="w-4 h-4" />
+                                                        </Button>
+                                                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteExclusive(key.id)}>
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </Button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
+
+                    <Dialog open={isExclusiveDialogOpen} onOpenChange={setIsExclusiveDialogOpen}>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>{editingKey ? '编辑专属密钥' : '生成专属密钥'}</DialogTitle>
+                            </DialogHeader>
+                            <form onSubmit={handleSaveExclusive} className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="ex-name">名称 (可选)</Label>
+                                    <Input
+                                        id="ex-name"
+                                        value={exclusiveForm.name}
+                                        onChange={(e) => setExclusiveForm({ ...exclusiveForm, name: e.target.value })}
+                                        placeholder="My App Key"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>绑定预设</Label>
+                                    <Select
+                                        value={exclusiveForm.preset_id}
+                                        onValueChange={(val) => setExclusiveForm({ ...exclusiveForm, preset_id: val })}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="选择预设..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">不使用预设</SelectItem>
+                                            {presets.map(p => (
+                                                <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>绑定正则</Label>
+                                    <Select
+                                        value={exclusiveForm.regex_id}
+                                        onValueChange={(val) => setExclusiveForm({ ...exclusiveForm, regex_id: val })}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="选择正则..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">不使用正则</SelectItem>
+                                            {regexRules.map(r => (
+                                                <SelectItem key={r.id} value={r.id.toString()}>{r.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <Label htmlFor="ex-active">启用</Label>
+                                    <Switch
+                                        id="ex-active"
+                                        checked={exclusiveForm.is_active}
+                                        onCheckedChange={(checked) => setExclusiveForm({ ...exclusiveForm, is_active: checked })}
+                                    />
+                                </div>
+                                <DialogFooter>
+                                    <Button type="submit">{editingKey ? '保存' : '生成'}</Button>
+                                </DialogFooter>
+                            </form>
+                        </DialogContent>
+                    </Dialog>
                 </TabsContent>
 
-                {/* 官方密钥Tab */}
+                {/* Official Keys Tab */}
                 <TabsContent value="official" className="space-y-6">
                     <div className="flex justify-between items-center">
                         <div>
@@ -281,7 +395,7 @@ export default function KeysPage() {
                             </p>
                         </div>
                         <div className="flex gap-2">
-                            <Button onClick={fetchOfficialKeys} variant="outline" size="sm">
+                            <Button onClick={fetchData} variant="outline" size="sm">
                                 <RefreshCw className="w-4 h-4 mr-2" />
                                 刷新
                             </Button>
@@ -372,22 +486,33 @@ export default function KeysPage() {
                         ) : (
                             <div className="divide-y">
                                 {officialKeys.map((key) => {
-                                    const health = getHealthStatus(key);
+                                    const successRate = key.total_requests === 0 ? 0 : ((key.total_requests - key.failed_requests) / key.total_requests * 100);
+                                    let healthColor = 'text-red-600';
+                                    let healthLabel = '异常';
+                                    if (!key.is_active) {
+                                        healthColor = 'text-gray-500';
+                                        healthLabel = '已禁用';
+                                    } else if (successRate >= 95) {
+                                        healthColor = 'text-green-600';
+                                        healthLabel = '健康';
+                                    } else if (successRate >= 80) {
+                                        healthColor = 'text-blue-600';
+                                        healthLabel = '良好';
+                                    } else if (successRate >= 60) {
+                                        healthColor = 'text-yellow-600';
+                                        healthLabel = '一般';
+                                    }
+
                                     return (
                                         <div key={key.id} className="p-4 hover:bg-accent/50 transition-colors">
                                             <div className="flex items-start justify-between">
                                                 <div className="flex-1">
                                                     <div className="flex items-center gap-3 mb-2">
                                                         <span className="font-medium">{key.name}</span>
-                                                        <span className={cn("text-xs flex items-center gap-1", health.color)}>
+                                                        <span className={cn("text-xs flex items-center gap-1", healthColor)}>
                                                             <Activity className="w-3 h-3" />
-                                                            {health.label}
+                                                            {healthLabel}
                                                         </span>
-                                                        {!key.is_active && (
-                                                            <span className="px-2 py-0.5 rounded text-xs bg-muted text-muted-foreground">
-                                                                已禁用
-                                                            </span>
-                                                        )}
                                                     </div>
                                                     <div className="text-xs font-mono text-muted-foreground mb-3">
                                                         {key.key.substring(0, 20)}...
@@ -403,7 +528,7 @@ export default function KeysPage() {
                                                         </div>
                                                         <div>
                                                             <div className="text-muted-foreground">成功率</div>
-                                                            <div className="font-medium">{calculateSuccessRate(key)}%</div>
+                                                            <div className="font-medium">{successRate.toFixed(1)}%</div>
                                                         </div>
                                                         <div>
                                                             <div className="text-muted-foreground">最后使用</div>

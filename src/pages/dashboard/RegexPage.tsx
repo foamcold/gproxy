@@ -38,10 +38,11 @@ interface SortableRuleItemProps {
     rule: RegexRule;
     onEdit: (rule: RegexRule) => void;
     onDelete: (id: number) => void;
-    onExportSingle: (rule: RegexRule) => void;  // 单个导出功能
+    onExportSingle: (rule: RegexRule) => void;
+    onToggle: (id: number, active: boolean) => void;
 }
 
-function SortableRuleItem({ rule, onEdit, onDelete, onExportSingle }: SortableRuleItemProps) {
+function SortableRuleItem({ rule, onEdit, onDelete, onExportSingle, onToggle }: SortableRuleItemProps) {
     const {
         attributes,
         listeners,
@@ -93,6 +94,11 @@ function SortableRuleItem({ rule, onEdit, onDelete, onExportSingle }: SortableRu
                 </div>
             </div>
             <div className="flex items-center gap-2">
+                <Switch
+                    checked={rule.is_active}
+                    onCheckedChange={(checked) => onToggle(rule.id, checked)}
+                    onClick={(e) => e.stopPropagation()}
+                />
                 <Button variant="ghost" size="icon" onClick={() => onExportSingle(rule)} title="导出此规则">
                     <FileDown className="w-4 h-4" />
                 </Button>
@@ -111,7 +117,6 @@ export default function RegexPage() {
     const [rules, setRules] = useState<RegexRule[]>([]);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingRule, setEditingRule] = useState<RegexRule | null>(null);
-    const [globalEnabled, setGlobalEnabled] = useState(false);  // 全局启用开关
     const [formData, setFormData] = useState({
         name: '',
         pattern: '',
@@ -182,12 +187,37 @@ export default function RegexPage() {
                     })
                 )
             );
+
         } catch (error) {
             toast({
                 variant: 'error',
                 title: '更新失败',
                 description: '无法更新排序',
             });
+        }
+    };
+
+    const handleToggleRule = async (id: number, active: boolean) => {
+        const rule = rules.find(r => r.id === id);
+        if (!rule) return;
+
+        const token = localStorage.getItem('token');
+        try {
+            await axios.put(`${API_BASE_URL}/regex/${id}`, {
+                name: rule.name,
+                pattern: rule.pattern,
+                replacement: rule.replacement,
+                type: rule.type,
+                is_active: active,
+                sort_order: rule.sort_order,
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            setRules(rules.map(r => r.id === id ? { ...r, is_active: active } : r));
+            toast({ variant: 'success', title: active ? '已启用' : '已禁用' });
+        } catch (error) {
+            toast({ variant: 'error', title: '更新状态失败' });
         }
     };
 
@@ -315,16 +345,6 @@ export default function RegexPage() {
             <div className="flex justify-between items-center">
                 <div className="flex items-center gap-4">
                     <h1 className="text-3xl font-bold tracking-tight">正则</h1>
-                    <div className="flex items-center gap-2 bg-muted px-3 py-1.5 rounded-md">
-                        <Label htmlFor="regex-global-switch" className="text-sm font-medium cursor-pointer">
-                            {globalEnabled ? '已启用' : '已禁用'}
-                        </Label>
-                        <Switch
-                            id="regex-global-switch"
-                            checked={globalEnabled}
-                            onCheckedChange={setGlobalEnabled}
-                        />
-                    </div>
                 </div>
                 <div className="flex gap-2">
                     <Button onClick={handleExport} variant="outline" size="sm">
@@ -407,15 +427,15 @@ export default function RegexPage() {
                                         </ul>
                                     </div>
                                 </div>
-                                <div className="flex items-center justify-between">
-                                    <Label htmlFor="active">启用</Label>
-                                    <Switch
-                                        id="active"
-                                        checked={formData.is_active}
-                                        onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-                                    />
-                                </div>
-                                <DialogFooter>
+                                <DialogFooter className="sm:justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Switch
+                                            id="active"
+                                            checked={formData.is_active}
+                                            onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                                        />
+                                        <Label htmlFor="active">启用此规则</Label>
+                                    </div>
                                     <Button type="submit">保存</Button>
                                 </DialogFooter>
                             </form>
@@ -448,6 +468,7 @@ export default function RegexPage() {
                                         onEdit={openEdit}
                                         onDelete={handleDelete}
                                         onExportSingle={handleExportSingle}
+                                        onToggle={handleToggleRule}
                                     />
                                 ))}
                             </div>

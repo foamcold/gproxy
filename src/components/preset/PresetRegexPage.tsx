@@ -28,9 +28,10 @@ interface SortableRuleItemProps {
     onEdit: (rule: PresetRegexRule) => void;
     onDelete: (id: number) => void;
     onExportSingle: (rule: PresetRegexRule) => void;
+    onToggle: (id: number, active: boolean) => void;
 }
 
-function SortableRuleItem({ rule, onEdit, onDelete, onExportSingle }: SortableRuleItemProps) {
+function SortableRuleItem({ rule, onEdit, onDelete, onExportSingle, onToggle }: SortableRuleItemProps) {
     const {
         attributes,
         listeners,
@@ -82,6 +83,11 @@ function SortableRuleItem({ rule, onEdit, onDelete, onExportSingle }: SortableRu
                 </div>
             </div>
             <div className="flex items-center gap-2">
+                <Switch
+                    checked={rule.is_active}
+                    onCheckedChange={(checked) => onToggle(rule.id, checked)}
+                    onClick={(e) => e.stopPropagation()}
+                />
                 <Button variant="ghost" size="icon" onClick={() => onExportSingle(rule)} title="导出此规则">
                     <FileDown className="w-4 h-4" />
                 </Button>
@@ -174,6 +180,27 @@ export function PresetRegexPage({ presetId }: PresetRegexPageProps) {
                 title: '更新失败',
                 description: '无法更新排序',
             });
+        }
+    };
+
+    const handleToggleRule = async (id: number, active: boolean) => {
+        const rule = rules.find(r => r.id === id);
+        if (!rule) return;
+
+        try {
+            await presetRegexService.updatePresetRegexRule(presetId, id, {
+                name: rule.name,
+                pattern: rule.pattern,
+                replacement: rule.replacement,
+                type: rule.type,
+                is_active: active,
+                sort_order: rule.sort_order,
+            });
+
+            setRules(rules.map(r => r.id === id ? { ...r, is_active: active } : r));
+            toast({ variant: 'success', title: active ? '已启用' : '已禁用' });
+        } catch (error) {
+            toast({ variant: 'error', title: '更新状态失败' });
         }
     };
 
@@ -310,15 +337,15 @@ export function PresetRegexPage({ presetId }: PresetRegexPageProps) {
                                     className="font-mono h-20"
                                 />
                             </div>
-                            <div className="flex items-center justify-between">
-                                <Label htmlFor="active">启用</Label>
-                                <Switch
-                                    id="active"
-                                    checked={formData.is_active}
-                                    onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-                                />
-                            </div>
-                            <DialogFooter>
+                            <DialogFooter className="sm:justify-between">
+                                <div className="flex items-center gap-2">
+                                    <Switch
+                                        id="active"
+                                        checked={formData.is_active}
+                                        onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                                    />
+                                    <Label htmlFor="active">启用此规则</Label>
+                                </div>
                                 <Button type="submit">保存</Button>
                             </DialogFooter>
                         </form>
@@ -350,6 +377,7 @@ export function PresetRegexPage({ presetId }: PresetRegexPageProps) {
                                         onEdit={openEdit}
                                         onDelete={handleDelete}
                                         onExportSingle={handleExportSingle}
+                                        onToggle={handleToggleRule}
                                     />
                                 ))}
                             </div>

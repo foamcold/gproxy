@@ -8,7 +8,7 @@ from app.api import deps
 from app.models.key import OfficialKey, ExclusiveKey
 from app.models.user import User
 from app.schemas.key import OfficialKey as OfficialKeySchema, OfficialKeyCreate, OfficialKeyUpdate
-from app.schemas.key import ExclusiveKey as ExclusiveKeySchema, ExclusiveKeyCreate
+from app.schemas.key import ExclusiveKey as ExclusiveKeySchema, ExclusiveKeyCreate, ExclusiveKeyUpdate
 
 router = APIRouter()
 
@@ -75,12 +75,20 @@ async def read_exclusive_keys(
     db: AsyncSession = Depends(deps.get_db),
     skip: int = 0,
     limit: int = 100,
+    q: str = None,
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Retrieve exclusive keys.
     """
     query = select(ExclusiveKey).filter(ExclusiveKey.user_id == current_user.id)
+    
+    if q:
+        query = query.filter(
+            (ExclusiveKey.name.ilike(f"%{q}%")) | 
+            (ExclusiveKey.key.ilike(f"%{q}%"))
+        )
+        
     result = await db.execute(query.offset(skip).limit(limit))
     keys = result.scalars().all()
     return keys
@@ -108,6 +116,8 @@ async def create_exclusive_key(
         name=key_in.name,
         user_id=current_user.id,
         is_active=key_in.is_active,
+        preset_id=key_in.preset_id,
+        regex_id=key_in.regex_id,
     )
     db.add(key)
     await db.commit()
@@ -131,4 +141,29 @@ async def delete_exclusive_key(
     
     await db.delete(key)
     await db.commit()
+    return key
+
+@router.patch("/exclusive/{key_id}", response_model=ExclusiveKeySchema)
+async def update_exclusive_key(
+    *,
+    db: AsyncSession = Depends(deps.get_db),
+    key_id: int,
+    key_in: ExclusiveKeyUpdate,
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Update exclusive key.
+    """
+    result = await db.execute(select(ExclusiveKey).filter(ExclusiveKey.id == key_id, ExclusiveKey.user_id == current_user.id))
+    key = result.scalars().first()
+    if not key:
+        raise HTTPException(status_code=404, detail="Key not found")
+    
+    update_data = key_in.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(key, field, value)
+        
+    db.add(key)
+    await db.commit()
+    await db.refresh(key)
     return key

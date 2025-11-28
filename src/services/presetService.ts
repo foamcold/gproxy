@@ -7,6 +7,7 @@ export interface PresetItem {
     name: string;
     content: string;
     order: number;
+    enabled?: boolean;
 }
 
 export interface PresetContent {

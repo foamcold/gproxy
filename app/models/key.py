@@ -25,6 +25,12 @@ class ExclusiveKey(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     name = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
+    
+    preset_id = Column(Integer, ForeignKey("presets.id"), nullable=True)
+    regex_id = Column(Integer, ForeignKey("regex_rules.id"), nullable=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User")
+    preset = relationship("Preset")
+    regex_rule = relationship("RegexRule")
