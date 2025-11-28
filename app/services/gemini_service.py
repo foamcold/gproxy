@@ -90,19 +90,17 @@ class GeminiService:
             key.last_status = status
             key.usage_count += 1  # Always increment usage count
 
-            if status in ["401", "403"]:  # Invalid key
-                key.is_active = False
-
-            # Increment error count if status is not a success (2xx)
-            if not status.startswith("2"):
+            if status.startswith("2"):
+                # Success: Update tokens
+                if key.total_tokens is None:
+                    key.total_tokens = 0
+                key.total_tokens += (input_tokens + output_tokens)
+            else:
+                # Failure: Increment error count and disable key
                 if key.error_count is None:
                     key.error_count = 0
                 key.error_count += 1
-            
-            # Update total tokens
-            if key.total_tokens is None:
-                key.total_tokens = 0
-            key.total_tokens += (input_tokens + output_tokens)
+                key.is_active = False
             
             await db.commit()
 

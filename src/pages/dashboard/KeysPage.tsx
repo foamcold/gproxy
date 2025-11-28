@@ -26,7 +26,6 @@ import { useToast } from '@/hooks/useToast';
 import { cn } from '@/lib/utils';
 import { confirm } from '@/components/ui/ConfirmDialog';
 import { Pagination } from '@/components/ui/pagination';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 
@@ -343,6 +342,19 @@ export default function KeysPage() {
         }
     };
 
+    const handleUpdateExclusive = async (id: number, updates: Partial<ExclusiveKey>) => {
+        const token = localStorage.getItem('token');
+        try {
+            await axios.patch(`${API_BASE_URL}/keys/exclusive/${id}`, updates, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            fetchExclusiveKeys(exclusiveData.page, exclusiveData.size);
+            toast({ variant: 'success', title: '更新成功' });
+        } catch (error) {
+            toast({ variant: 'error', title: '更新失败' });
+        }
+    };
+
     const handleDeleteOfficial = async (id: number) => {
         if (!await confirm({ title: "删除密钥", description: `确定要删除此官方密钥吗？`, confirmText: "删除" })) return;
         const token = localStorage.getItem('token');
@@ -361,8 +373,6 @@ export default function KeysPage() {
         navigator.clipboard.writeText(text);
         toast({ title: '已复制到剪贴板' });
     };
-
-    const getPresetName = (id: number | null) => presets.find(p => p.id === id)?.name || '-';
 
     return (
         <div className="space-y-6">
@@ -410,11 +420,10 @@ export default function KeysPage() {
                                                 />
                                             </th>
                                             <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">名称</th>
-                                            <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Key</th>
+                                            <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">密钥</th>
                                             <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">绑定预设</th>
-                                            <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">启用正则</th>
-                                            <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">状态</th>
-                                            <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">操作</th>
+                                            <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">启用正则</th>
+                                            <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">启用/删除</th>
                                         </tr>
                                     </thead>
                                     <tbody className="[&_tr:last-child]:border-0">
@@ -436,7 +445,14 @@ export default function KeysPage() {
                                                             onCheckedChange={() => handleSelectOne('exclusive', key.id)}
                                                         />
                                                     </td>
-                                                    <td className="p-4 align-middle font-medium">{key.name || '未命名'}</td>
+                                                    <td className="p-4 align-middle font-medium">
+                                                        <div className="flex items-center gap-2">
+                                                            <span>{key.name || '未命名'}</span>
+                                                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleOpenExclusiveDialog(key)}>
+                                                                <Pencil className="w-3 h-3" />
+                                                            </Button>
+                                                        </div>
+                                                    </td>
                                                     <td className="p-4 align-middle">
                                                         <div className="flex items-center gap-2">
                                                             <code className="relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm break-all" title={key.key}>
@@ -448,28 +464,35 @@ export default function KeysPage() {
                                                         </div>
                                                     </td>
                                                     <td className="p-4 align-middle">
-                                                        {key.preset_id ? (
-                                                            <Badge variant="outline">{getPresetName(key.preset_id)}</Badge>
-                                                        ) : (
-                                                            <span className="text-muted-foreground">-</span>
-                                                        )}
+                                                        <Select
+                                                            value={key.preset_id?.toString() || "none"}
+                                                            onValueChange={(val) => handleUpdateExclusive(key.id, { preset_id: val === "none" ? null : parseInt(val) })}
+                                                        >
+                                                            <SelectTrigger className="w-[140px] h-8">
+                                                                <SelectValue placeholder="选择预设" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="none">不使用预设</SelectItem>
+                                                                {presets.map(p => (
+                                                                    <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
                                                     </td>
                                                     <td className="p-4 align-middle">
-                                                        <Badge variant={key.enable_regex ? "default" : "secondary"}>
-                                                            {key.enable_regex ? "是" : "否"}
-                                                        </Badge>
-                                                    </td>
-                                                    <td className="p-4 align-middle">
-                                                        <div className="flex items-center gap-2">
-                                                            <div className={cn("w-2 h-2 rounded-full", key.is_active ? "bg-green-500" : "bg-red-500")} />
-                                                            {key.is_active ? "启用" : "禁用"}
+                                                        <div className="flex justify-center">
+                                                            <Switch
+                                                                checked={key.enable_regex}
+                                                                onCheckedChange={(checked) => handleUpdateExclusive(key.id, { enable_regex: checked })}
+                                                            />
                                                         </div>
                                                     </td>
                                                     <td className="p-4 align-middle text-right">
-                                                        <div className="flex justify-end gap-2">
-                                                            <Button variant="ghost" size="icon" onClick={() => handleOpenExclusiveDialog(key)}>
-                                                                <Pencil className="w-4 h-4" />
-                                                            </Button>
+                                                        <div className="flex justify-end gap-2 items-center">
+                                                            <Switch
+                                                                checked={key.is_active}
+                                                                onCheckedChange={(checked) => handleUpdateExclusive(key.id, { is_active: checked })}
+                                                            />
                                                             <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteExclusive(key.id)}>
                                                                 <Trash2 className="w-4 h-4" />
                                                             </Button>
@@ -557,14 +580,22 @@ export default function KeysPage() {
                                     />
                                 </div>
                                 <div className="flex items-center justify-between">
-                                    <Label htmlFor="ex-active">启用</Label>
+                                    <Label htmlFor="ex-regex">启用正则</Label>
                                     <Switch
-                                        id="ex-active"
-                                        checked={exclusiveForm.is_active}
-                                        onCheckedChange={(checked) => setExclusiveForm({ ...exclusiveForm, is_active: checked })}
+                                        id="ex-regex"
+                                        checked={exclusiveForm.enable_regex}
+                                        onCheckedChange={(checked) => setExclusiveForm({ ...exclusiveForm, enable_regex: checked })}
                                     />
                                 </div>
-                                <DialogFooter>
+                                <DialogFooter className="flex justify-between items-center sm:justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Switch
+                                            id="ex-active"
+                                            checked={exclusiveForm.is_active}
+                                            onCheckedChange={(checked) => setExclusiveForm({ ...exclusiveForm, is_active: checked })}
+                                        />
+                                        <Label htmlFor="ex-active">启用</Label>
+                                    </div>
                                     <Button type="submit">{editingKey ? '保存' : '生成'}</Button>
                                 </DialogFooter>
                             </form>
@@ -648,12 +679,12 @@ export default function KeysPage() {
                                                     onCheckedChange={() => handleSelectAll('official')}
                                                 />
                                             </th>
-                                            <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Key</th>
-                                            <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">状态</th>
-                                            <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">请求/错误</th>
-                                            <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Tokens</th>
-                                            <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">创建时间</th>
-                                            <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">操作</th>
+                                            <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">密钥</th>
+                                            <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">状态</th>
+                                            <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">请求/错误</th>
+                                            <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Tokens</th>
+                                            <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">创建时间</th>
+                                            <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">启用/删除</th>
                                         </tr>
                                     </thead>
                                     <tbody className="[&_tr:last-child]:border-0">
@@ -701,22 +732,22 @@ export default function KeysPage() {
                                                             </div>
                                                         </td>
                                                         <td className="p-4 align-middle">
-                                                            <div className="flex items-center gap-2">
+                                                            <div className="flex items-center justify-center gap-2">
                                                                 <Activity className={cn("w-4 h-4", healthColor)} />
                                                                 <span className="text-sm">{healthLabel}</span>
                                                             </div>
                                                         </td>
                                                         <td className="p-4 align-middle">
-                                                            <div className="flex items-center gap-1 text-sm">
+                                                            <div className="flex items-center justify-center gap-1 text-sm">
                                                                 <span>{key.usage_count || 0}</span>
                                                                 <span className="text-muted-foreground">/</span>
                                                                 <span className="text-red-600">{key.error_count || 0}</span>
                                                             </div>
                                                         </td>
-                                                        <td className="p-4 align-middle text-sm">
+                                                        <td className="p-4 align-middle text-sm text-center">
                                                             {key.total_tokens || 0}
                                                         </td>
-                                                        <td className="p-4 align-middle text-sm text-muted-foreground">
+                                                        <td className="p-4 align-middle text-sm text-muted-foreground text-center">
                                                             {new Date(key.created_at).toLocaleString('zh-CN', {
                                                                 year: 'numeric',
                                                                 month: '2-digit',
