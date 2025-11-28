@@ -12,6 +12,10 @@ class Preset(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     is_active = Column(Boolean, default=True)
     sort_order = Column(Integer, default=0)
+    creator_username = Column(String, nullable=True)  # 创建者用户名（用于溯源）
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())  # 最新修改时间
 
     user = relationship("User")
+    regex_rules = relationship("PresetRegexRule", back_populates="preset", cascade="all, delete-orphan")
+

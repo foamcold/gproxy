@@ -17,7 +17,9 @@ class PresetUpdate(PresetBase):
 class Preset(PresetBase):
     id: int
     user_id: int
+    creator_username: Optional[str] = None
     created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True

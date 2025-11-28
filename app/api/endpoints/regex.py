@@ -42,6 +42,7 @@ async def create_regex_rule(
         user_id=current_user.id,
         is_active=rule_in.is_active,
         sort_order=rule_in.sort_order,
+        creator_username=current_user.username,  # 自动设置创建者用户名
     )
     db.add(rule)
     await db.commit()

@@ -5,7 +5,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Plus, Pencil, Trash2, GripVertical, Download, Upload } from 'lucide-react';
+import { Plus, Pencil, Trash2, GripVertical, Download, Upload, FileDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -38,9 +38,10 @@ interface SortableRuleItemProps {
     rule: RegexRule;
     onEdit: (rule: RegexRule) => void;
     onDelete: (id: number) => void;
+    onExportSingle: (rule: RegexRule) => void;  // 单个导出功能
 }
 
-function SortableRuleItem({ rule, onEdit, onDelete }: SortableRuleItemProps) {
+function SortableRuleItem({ rule, onEdit, onDelete, onExportSingle }: SortableRuleItemProps) {
     const {
         attributes,
         listeners,
@@ -92,6 +93,9 @@ function SortableRuleItem({ rule, onEdit, onDelete }: SortableRuleItemProps) {
                 </div>
             </div>
             <div className="flex items-center gap-2">
+                <Button variant="ghost" size="icon" onClick={() => onExportSingle(rule)} title="导出此规则">
+                    <FileDown className="w-4 h-4" />
+                </Button>
                 <Button variant="ghost" size="icon" onClick={() => onEdit(rule)}>
                     <Pencil className="w-4 h-4" />
                 </Button>
@@ -107,6 +111,7 @@ export default function RegexPage() {
     const [rules, setRules] = useState<RegexRule[]>([]);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingRule, setEditingRule] = useState<RegexRule | null>(null);
+    const [globalEnabled, setGlobalEnabled] = useState(false);  // 全局启用开关
     const [formData, setFormData] = useState({
         name: '',
         pattern: '',
@@ -243,7 +248,36 @@ export default function RegexPage() {
     };
 
     const handleExport = () => {
-        exportToJSON(rules, 'gproxy-regex-rules');
+        // 导出所有正则，格式化JSON
+        const exportData = rules.map(rule => ({
+            name: rule.name,
+            pattern: rule.pattern,
+            replacement: rule.replacement,
+            type: rule.type,
+            is_active: rule.is_active,
+            creator_username: (rule as any).creator_username || 'unknown',
+            created_at: (rule as any).created_at || new Date().toISOString(),
+            updated_at: (rule as any).updated_at || new Date().toISOString(),
+        }));
+
+        exportToJSON(exportData, 'gproxy-regex-rules');
+        toast({ variant: 'success', title: '导出成功' });
+    };
+
+    // 单个正则导出
+    const handleExportSingle = (rule: RegexRule) => {
+        const exportData = {
+            name: rule.name,
+            pattern: rule.pattern,
+            replacement: rule.replacement,
+            type: rule.type,
+            is_active: rule.is_active,
+            creator_username: (rule as any).creator_username || 'unknown',
+            created_at: (rule as any).created_at || new Date().toISOString(),
+            updated_at: (rule as any).updated_at || new Date().toISOString(),
+        };
+
+        exportToJSON(exportData, `gproxy-regex-${rule.name}`);
         toast({ variant: 'success', title: '导出成功' });
     };
 
@@ -279,7 +313,19 @@ export default function RegexPage() {
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold tracking-tight">正则</h1>
+                <div className="flex items-center gap-4">
+                    <h1 className="text-3xl font-bold tracking-tight">正则</h1>
+                    <div className="flex items-center gap-2 bg-muted px-3 py-1.5 rounded-md">
+                        <Label htmlFor="regex-global-switch" className="text-sm font-medium cursor-pointer">
+                            {globalEnabled ? '已启用' : '已禁用'}
+                        </Label>
+                        <Switch
+                            id="regex-global-switch"
+                            checked={globalEnabled}
+                            onCheckedChange={setGlobalEnabled}
+                        />
+                    </div>
+                </div>
                 <div className="flex gap-2">
                     <Button onClick={handleExport} variant="outline" size="sm">
                         <Download className="w-4 h-4 mr-2" />
@@ -401,6 +447,7 @@ export default function RegexPage() {
                                         rule={rule}
                                         onEdit={openEdit}
                                         onDelete={handleDelete}
+                                        onExportSingle={handleExportSingle}
                                     />
                                 ))}
                             </div>

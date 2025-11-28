@@ -1,14 +1,19 @@
 import { useState, useEffect } from 'react';
 import { PresetList } from '@/components/preset/PresetList';
 import { PresetItemEditor } from '@/components/preset/PresetItemEditor';
+import { PresetRegexPage } from '@/components/preset/PresetRegexPage';
 import { useToast } from '@/hooks/useToast';
 import { presetService, type Preset, type PresetContent } from '@/services/presetService';
 import { exportToJSON, importFromJSON } from '@/utils/exportImport';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 
 export default function PresetsPage() {
     const [presets, setPresets] = useState<Preset[]>([]);
     const [selectedPreset, setSelectedPreset] = useState<Preset | null>(null);
     const [loading, setLoading] = useState(true);
+    const [globalEnabled, setGlobalEnabled] = useState(false);  // 全局启用开关
     const { toast } = useToast();
 
     // 加载预设列表
@@ -185,9 +190,24 @@ export default function PresetsPage() {
         }
     };
 
-    // 导出预设
+    // 导出预设（仅导出选中的）
     const handleExport = () => {
-        exportToJSON(presets, 'gproxy-presets');
+        if (!selectedPreset) {
+            toast({ variant: 'error', title: '请先选择一个预设' });
+            return;
+        }
+
+        const content = presetService.parsePresetContent(selectedPreset.content);
+        const exportData = {
+            name: selectedPreset.name,
+            content: JSON.stringify(content, null, 2),  // 格式化JSON
+            is_active: selectedPreset.is_active,
+            creator_username: (selectedPreset as any).creator_username || 'unknown',
+            created_at: (selectedPreset as any).created_at || new Date().toISOString(),
+            updated_at: (selectedPreset as any).updated_at || new Date().toISOString(),
+        };
+
+        exportToJSON(exportData, `gproxy-preset-${selectedPreset.name}`);
         toast({
             variant: 'success',
             title: '导出成功',
@@ -254,30 +274,64 @@ export default function PresetsPage() {
     }
 
     return (
-        <div className="flex h-[calc(100vh-8rem)] gap-4">
-            {/* 左侧：预设列表 (1/4宽度) */}
-            <div className="w-1/4">
-                <PresetList
-                    presets={presets}
-                    selectedPresetId={selectedPreset?.id || null}
-                    onSelectPreset={setSelectedPreset}
-                    onCreatePreset={handleCreatePreset}
-                    onUpdatePresets={handleUpdatePresets}
-                    onToggleActive={handleToggleActive}
-                    onRename={handleRename}
-                    onDelete={handleDelete}
-                    onDuplicate={handleDuplicate}
-                    onExport={handleExport}
-                    onImport={handleImport}
-                />
+        <div className="flex flex-col h-[calc(100vh-8rem)] gap-4">
+            {/* 顶部栏：标题和全局开关 */}
+            <div className="flex items-center gap-4 px-4">
+                <h1 className="text-3xl font-bold tracking-tight">预设</h1>
+                <div className="flex items-center gap-2 bg-muted px-3 py-1.5 rounded-md">
+                    <Label htmlFor="preset-global-switch" className="text-sm font-medium cursor-pointer">
+                        {globalEnabled ? '已启用' : '已禁用'}
+                    </Label>
+                    <Switch
+                        id="preset-global-switch"
+                        checked={globalEnabled}
+                        onCheckedChange={setGlobalEnabled}
+                    />
+                </div>
             </div>
 
-            {/* 右侧：预设条目编辑器 (3/4宽度) */}
-            <div className="flex-1 border rounded-lg bg-card">
-                <PresetItemEditor
-                    preset={selectedPreset}
-                    onUpdatePreset={handleUpdatePresetContent}
-                />
+            <div className="flex flex-1 gap-4 min-h-0">
+                {/* 左侧：预设列表 (1/4宽度) */}
+                <div className="w-1/4">
+                    <PresetList
+                        presets={presets}
+                        selectedPresetId={selectedPreset?.id || null}
+                        onSelectPreset={setSelectedPreset}
+                        onCreatePreset={handleCreatePreset}
+                        onUpdatePresets={handleUpdatePresets}
+                        onToggleActive={handleToggleActive}
+                        onRename={handleRename}
+                        onDelete={handleDelete}
+                        onDuplicate={handleDuplicate}
+                        onExport={handleExport}
+                        onImport={handleImport}
+                    />
+                </div>
+
+                {/* 右侧：预设内容编辑器（带二级菜单） (3/4宽度) */}
+                <div className="flex-1 border rounded-lg bg-card overflow-hidden">
+                    {!selectedPreset ? (
+                        <div className="flex items-center justify-center h-full text-muted-foreground">
+                            <p>← 请从左侧选择一个预设</p>
+                        </div>
+                    ) : (
+                        <Tabs defaultValue="items" className="h-full flex flex-col">
+                            <TabsList className="w-full rounded-none border-b bg-muted/50">
+                                <TabsTrigger value="items" className="flex-1">预设管理</TabsTrigger>
+                                <TabsTrigger value="regex" className="flex-1">正则管理</TabsTrigger>
+                            </TabsList>
+                            <TabsContent value="items" className="flex-1 m-0 overflow-hidden">
+                                <PresetItemEditor
+                                    preset={selectedPreset}
+                                    onUpdatePreset={handleUpdatePresetContent}
+                                />
+                            </TabsContent>
+                            <TabsContent value="regex" className="flex-1 m-0 overflow-hidden">
+                                <PresetRegexPage presetId={selectedPreset.id} />
+                            </TabsContent>
+                        </Tabs>
+                    )}
+                </div>
             </div>
         </div>
     );

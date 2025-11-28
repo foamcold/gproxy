@@ -40,6 +40,7 @@ async def create_preset(
         user_id=current_user.id,
         is_active=preset_in.is_active,
         sort_order=preset_in.sort_order,
+        creator_username=current_user.username,  # 自动设置创建者用户名
     )
     db.add(preset)
     await db.commit()

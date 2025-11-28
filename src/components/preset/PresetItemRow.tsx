@@ -1,6 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, User, Bot, Settings, Pencil, Trash2, Copy } from 'lucide-react';
+import { GripVertical, Pencil, Trash2, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { PresetItem } from '@/services/presetService';
@@ -13,9 +13,9 @@ interface PresetItemRowProps {
 }
 
 const roleIcons = {
-    system: <Settings className="w-4 h-4 text-purple-500" />,
-    user: <User className="w-4 h-4 text-blue-500" />,
-    assistant: <Bot className="w-4 h-4 text-green-500" />,
+    system: <span className="text-lg">🔧</span>,
+    user: <span className="text-lg">👤</span>,
+    assistant: <span className="text-lg">🤖</span>,
 };
 
 const typeLabels = {

@@ -11,6 +11,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import type { PresetItem } from '@/services/presetService';
 
 interface PresetItemEditDialogProps {
@@ -50,7 +57,7 @@ export function PresetItemEditDialog({
                 <DialogHeader>
                     <DialogTitle className="text-2xl">编辑预设条目</DialogTitle>
                     <DialogDescription>
-                        配置预设条目的角色、类型和内容。支持使用变量如 {'{{'} roll 2d6 {'}}'}, {'{{'} random::A::B::C {'}}'}
+                        配置预设条目的角色、类型和内容。支持使用变量如 {'{'} roll 2d6 {'}'}, {'{'} random::A::B::C {'}'}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -66,75 +73,96 @@ export function PresetItemEditDialog({
                         />
                     </div>
 
-                    {/* 角色选择 */}
+                    {/* 角色选择 - 使用Select下拉框并保留图标 */}
                     <div className="space-y-2">
-                        <Label>角色</Label>
-                        <div className="grid grid-cols-3 gap-3">
-                            {roleOptions.map((option) => (
-                                <button
-                                    key={option.value}
-                                    type="button"
-                                    onClick={() => setFormData({ ...formData, role: option.value as any })}
-                                    className={`
-                    flex items-center gap-3 p-4 rounded-lg border-2 transition-all
-                    ${formData.role === option.value
-                                            ? 'border-primary bg-primary/5'
-                                            : 'border-border hover:border-primary/50'
-                                        }
-                  `}
-                                >
-                                    <span className="text-2xl">{option.icon}</span>
-                                    <span className="text-sm font-medium">{option.label}</span>
-                                </button>
-                            ))}
-                        </div>
+                        <Label htmlFor="role">角色</Label>
+                        <Select
+                            value={formData.role}
+                            onValueChange={(value) => setFormData({ ...formData, role: value as any })}
+                        >
+                            <SelectTrigger id="role">
+                                <SelectValue>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-lg">
+                                            {roleOptions.find(o => o.value === formData.role)?.icon}
+                                        </span>
+                                        <span>
+                                            {roleOptions.find(o => o.value === formData.role)?.label}
+                                        </span>
+                                    </div>
+                                </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                                {roleOptions.map((option) => (
+                                    <SelectItem key={option.value} value={option.value}>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-lg">{option.icon}</span>
+                                            <span>{option.label}</span>
+                                        </div>
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
 
-                    {/* 类型选择 */}
+                    {/* 类型选择 - 使用Select下拉框 */}
                     <div className="space-y-2">
-                        <Label>类型</Label>
+                        <Label htmlFor="type">类型</Label>
+                        <Select
+                            value={formData.type}
+                            onValueChange={(value) => setFormData({ ...formData, type: value as any })}
+                        >
+                            <SelectTrigger id="type">
+                                <SelectValue>
+                                    {typeOptions.find(o => o.value === formData.type)?.label}
+                                </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                                {typeOptions.map((option) => (
+                                    <SelectItem key={option.value} value={option.value}>
+                                        <div className="flex flex-col items-start">
+                                            <span className="font-medium">{option.label}</span>
+                                            <span className="text-xs text-muted-foreground">{option.description}</span>
+                                        </div>
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    {/* 内容编辑 - 仅在类型为normal时显示 */}
+                    {formData.type === 'normal' && (
                         <div className="space-y-2">
-                            {typeOptions.map((option) => (
-                                <button
-                                    key={option.value}
-                                    type="button"
-                                    onClick={() => setFormData({ ...formData, type: option.value as any })}
-                                    className={`
-                    w-full flex flex-col items-start gap-1 p-4 rounded-lg border-2 transition-all text-left
-                    ${formData.type === option.value
-                                            ? 'border-primary bg-primary/5'
-                                            : 'border-border hover:border-primary/50'
-                                        }
-                  `}
-                                >
-                                    <span className="font-medium">{option.label}</span>
-                                    <span className="text-xs text-muted-foreground">{option.description}</span>
-                                </button>
-                            ))}
+                            <Label htmlFor="content">内容</Label>
+                            <Textarea
+                                id="content"
+                                value={formData.content}
+                                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                                className="min-h-[200px] font-mono text-sm"
+                                placeholder="输入条目内容，支持变量如 {{roll 2d6}}, {{random::A::B}}, {{#注释}}..."
+                            />
+                            <div className="text-xs text-muted-foreground space-y-1">
+                                <p>💡 <strong>可用变量：</strong></p>
+                                <ul className="list-disc list-inside pl-2 space-y-0.5">
+                                    <li><code className="text-xs bg-muted px-1 rounded">{'{{'} roll XdY {'}}'}</code> - 投掷骰子，例如 {'{{'} roll 2d6 {'}}'}</li>
+                                    <li><code className="text-xs bg-muted px-1 rounded">{'{{'} random::A::B::C {'}}'}</code> - 随机选择</li>
+                                    <li><code className="text-xs bg-muted px-1 rounded">{'{{'} setvar::name::value {'}}'}</code> - 设置变量</li>
+                                    <li><code className="text-xs bg-muted px-1 rounded">{'{{'} getvar::name {'}}'}</code> - 获取变量</li>
+                                    <li><code className="text-xs bg-muted px-1 rounded">{'{{'} #注释 {'}}'}</code> - 添加注释（将被移除）</li>
+                                </ul>
+                            </div>
                         </div>
-                    </div>
+                    )}
 
-                    {/* 内容编辑 */}
-                    <div className="space-y-2">
-                        <Label htmlFor="content">内容</Label>
-                        <Textarea
-                            id="content"
-                            value={formData.content}
-                            onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                            className="min-h-[200px] font-mono text-sm"
-                            placeholder="输入条目内容，支持变量如 {{roll 2d6}}, {{random::A::B}}, {{#注释}}..."
-                        />
-                        <div className="text-xs text-muted-foreground space-y-1">
-                            <p>💡 <strong>可用变量：</strong></p>
-                            <ul className="list-disc list-inside pl-2 space-y-0.5">
-                                <li><code className="text-xs bg-muted px-1 rounded">{'{{'} roll XdY {'}}'}</code> - 投掷骰子，例如 {'{{'} roll 2d6 {'}}'}</li>
-                                <li><code className="text-xs bg-muted px-1 rounded">{'{{'} random::A::B::C {'}}'}</code> - 随机选择</li>
-                                <li><code className="text-xs bg-muted px-1 rounded">{'{{'} setvar::name::value {'}}'}</code> - 设置变量</li>
-                                <li><code className="text-xs bg-muted px-1 rounded">{'{{'} getvar::name {'}}'}</code> - 获取变量</li>
-                                <li><code className="text-xs bg-muted px-1 rounded">{'{{'} #注释 {'}}'}</code> - 添加注释（将被移除）</li>
-                            </ul>
+                    {/* 非normal类型的提示 */}
+                    {formData.type !== 'normal' && (
+                        <div className="p-4 bg-muted rounded-lg">
+                            <p className="text-sm text-muted-foreground">
+                                {formData.type === 'user_input' && '此类型会插入最后一条用户消息，无需填写内容'}
+                                {formData.type === 'history' && '此类型会插入历史对话（除最后一条用户消息），无需填写内容'}
+                            </p>
                         </div>
-                    </div>
+                    )}
                 </div>
 
                 <DialogFooter>
