@@ -1,31 +1,29 @@
 import apiClient from '@/utils/api';
 
 export interface PresetItem {
-    id?: string;
+    id: number;
     role: 'system' | 'user' | 'assistant';
     type: 'normal' | 'user_input' | 'history';
     name: string;
     content: string;
-    order: number;
-    enabled?: boolean;
-}
-
-export interface PresetContent {
-    items: PresetItem[];
+    sort_order: number;
+    enabled: boolean;
+    creator_username?: string;
+    created_at: string;
+    updated_at: string;
 }
 
 export interface Preset {
     id: number;
     name: string;
-    content: string; // JSON string of PresetContent
     is_active: boolean;
     sort_order: number;
     created_at?: string;
+    items: PresetItem[];
 }
 
 export interface PresetCreate {
     name: string;
-    content: string;
     is_active: boolean;
     sort_order: number;
 }
@@ -64,29 +62,29 @@ class PresetService {
         await apiClient.delete(`/presets/${id}`);
     }
 
+    // --- Preset Item Methods ---
+
     /**
-     * 解析预设内容
+     * 创建预设条目
      */
-    parsePresetContent(contentStr: string): PresetContent {
-        try {
-            return JSON.parse(contentStr);
-        } catch {
-            return { items: [] };
-        }
+    async createPresetItem(presetId: number, data: Omit<PresetItem, 'id' | 'creator_username' | 'created_at' | 'updated_at'>): Promise<PresetItem> {
+        const response = await apiClient.post<PresetItem>(`/presets/${presetId}/items/`, data);
+        return response.data;
     }
 
     /**
-     * 序列化预设内容
+     * 更新预设条目
      */
-    stringifyPresetContent(content: PresetContent): string {
-        return JSON.stringify(content);
+    async updatePresetItem(presetId: number, itemId: number, data: Partial<Omit<PresetItem, 'id' | 'creator_username' | 'created_at' | 'updated_at'>>): Promise<PresetItem> {
+        const response = await apiClient.put<PresetItem>(`/presets/${presetId}/items/${itemId}`, data);
+        return response.data;
     }
 
     /**
-     * 生成唯一ID
+     * 删除预设条目
      */
-    generateItemId(): string {
-        return `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    async deletePresetItem(presetId: number, itemId: number): Promise<void> {
+        await apiClient.delete(`/presets/${presetId}/items/${itemId}`);
     }
 }
 

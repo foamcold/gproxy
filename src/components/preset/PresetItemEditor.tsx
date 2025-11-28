@@ -6,97 +6,55 @@ import { Button } from '@/components/ui/button';
 import { PresetItemRow } from './PresetItemRow';
 import { PresetItemEditDialog } from './PresetItemEditDialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import type { Preset, PresetContent, PresetItem } from '@/services/presetService';
+import type { Preset, PresetItem } from '@/services/presetService';
 import { presetService } from '@/services/presetService';
+import { useToast } from '@/hooks/useToast';
 
 interface PresetItemEditorProps {
-    preset: Preset | null;
-    onUpdatePreset: (id: number, content: string) => void;
+    preset: Preset;
+    onItemsChange: () => void;
 }
 
-export function PresetItemEditor({ preset, onUpdatePreset }: PresetItemEditorProps) {
-    const [editingItem, setEditingItem] = useState<PresetItem | null>(null);
+export function PresetItemEditor({ preset, onItemsChange }: PresetItemEditorProps) {
+    const [editingItem, setEditingItem] = useState<PresetItem | Partial<PresetItem> | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
-    const [localItems, setLocalItems] = useState<PresetItem[]>([]);
-    const itemsRef = useRef(localItems);
-    itemsRef.current = localItems;
-
-    // 创建一个防抖函数来延迟更新
-    const debouncedUpdate = useCallback(
-        debounce((id: number, content: string) => {
-            onUpdatePreset(id, content);
-        }, 500),
-        [onUpdatePreset]
-    );
+    const { toast } = useToast();
 
     const sensors = useSensors(
         useSensor(PointerSensor),
         useSensor(KeyboardSensor)
     );
+    
+    const localItems = preset.items || [];
 
-    // Sync local items with preset content when preset changes
-    useEffect(() => {
-        if (preset) {
-            const content = presetService.parsePresetContent(preset.content);
-            setLocalItems(content.items || []);
-        } else {
-            setLocalItems([]);
-        }
-    }, [preset]);
-
-    // 防抖函数
-    function debounce<T extends (...args: any[]) => void>(func: T, delay: number) {
-        let timeoutId: ReturnType<typeof setTimeout>;
-        return function (this: ThisParameterType<T>, ...args: Parameters<T>) {
-            clearTimeout(timeoutId);
-            timeoutId = setTimeout(() => func.apply(this, args), delay);
-        } as T;
-    }
-
-    if (!preset) {
-        return (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-                <p>请选择一个预设</p>
-            </div>
-        );
-    }
-
-    // Helper to update both local state and parent/server
-    const updateItems = (newItems: PresetItem[]) => {
-        setLocalItems(newItems);
-        const newContent: PresetContent = { items: newItems };
-        debouncedUpdate(preset.id, presetService.stringifyPresetContent(newContent));
-    };
-
-    const handleDragEnd = (event: DragEndEvent) => {
+    const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
-
         if (over && active.id !== over.id) {
             const oldIndex = localItems.findIndex((item) => item.id === active.id);
             const newIndex = localItems.findIndex((item) => item.id === over.id);
+            const newItems = arrayMove(localItems, oldIndex, newIndex);
 
-            const newItems = arrayMove(localItems, oldIndex, newIndex).map((item, index) => ({
-                ...item,
-                order: index,
-            }));
+            onItemsChange(); // Optimistic update
 
-            // 只更新本地状态以获得即时反馈
-            setLocalItems(newItems);
-
-            // 使用防抖函数进行后台更新
-            const newContent: PresetContent = { items: newItems };
-            debouncedUpdate(preset.id, presetService.stringifyPresetContent(newContent));
+            try {
+                // Update sort order for all affected items
+                await Promise.all(newItems.map((item, index) =>
+                    presetService.updatePresetItem(preset.id, item.id, { sort_order: index })
+                ));
+            } catch (error) {
+                toast({ variant: 'error', title: '排序失败' });
+                onItemsChange(); // Revert on failure
+            }
         }
     };
 
     const handleAddItem = () => {
-        const newItem: PresetItem = {
-            id: presetService.generateItemId(),
+        const newItem: Partial<PresetItem> = {
             role: 'system',
             type: 'normal',
             name: '新建条目',
             content: '',
-            order: localItems.length,
+            sort_order: localItems.length,
             enabled: true,
         };
         setEditingItem(newItem);
@@ -108,46 +66,55 @@ export function PresetItemEditor({ preset, onUpdatePreset }: PresetItemEditorPro
         setIsDialogOpen(true);
     };
 
-    const handleSaveItem = (item: PresetItem) => {
-        const existingIndex = localItems.findIndex((i) => i.id === item.id);
-        let newItems: PresetItem[];
-
-        if (existingIndex >= 0) {
-            // 更新现有条目
-            newItems = localItems.map((i) => (i.id === item.id ? item : i));
-        } else {
-            // 添加新条目
-            newItems = [...localItems, item];
+    const handleSaveItem = async (item: PresetItem | Partial<PresetItem>) => {
+        try {
+            if ('id' in item && item.id) {
+                // Update
+                await presetService.updatePresetItem(preset.id, item.id, item);
+            } else {
+                // Create
+                await presetService.createPresetItem(preset.id, item as any);
+            }
+            onItemsChange();
+            setIsDialogOpen(false);
+            setEditingItem(null);
+            toast({ variant: 'success', title: '保存成功' });
+        } catch (error) {
+            toast({ variant: 'error', title: '保存失败' });
         }
-
-        updateItems(newItems);
-        setIsDialogOpen(false);
-        // Clear editing item to prevent stale data issues
-        setEditingItem(null);
     };
 
-    const handleDeleteItem = (itemId: string) => {
-        const newItems = localItems.filter((i) => i.id !== itemId);
-        updateItems(newItems);
+    const handleDeleteItem = async (itemId: number) => {
+        try {
+            await presetService.deletePresetItem(preset.id, itemId);
+            onItemsChange();
+            toast({ variant: 'success', title: '删除成功' });
+        } catch (error) {
+            toast({ variant: 'error', title: '删除失败' });
+        }
     };
 
-    const handleDuplicateItem = (item: PresetItem) => {
-        const newItem: PresetItem = {
-            ...item,
-            id: presetService.generateItemId(),
-            name: `${item.name} (副本)`,
-            order: localItems.length,
-            enabled: item.enabled !== false, // Copy enabled state
-        };
-        const newItems = [...localItems, newItem];
-        updateItems(newItems);
+    const handleDuplicateItem = async (item: PresetItem) => {
+        try {
+            await presetService.createPresetItem(preset.id, {
+                ...item,
+                name: `${item.name} (副本)`,
+                sort_order: localItems.length,
+            });
+            onItemsChange();
+            toast({ variant: 'success', title: '复制成功' });
+        } catch (error) {
+            toast({ variant: 'error', title: '复制失败' });
+        }
     };
 
-    const handleToggleEnabled = (item: PresetItem, enabled: boolean) => {
-        const newItems = localItems.map((i) =>
-            i.id === item.id ? { ...i, enabled } : i
-        );
-        updateItems(newItems);
+    const handleToggleEnabled = async (item: PresetItem, enabled: boolean) => {
+        try {
+            await presetService.updatePresetItem(preset.id, item.id, { enabled });
+            onItemsChange();
+        } catch (error) {
+            toast({ variant: 'error', title: '更新失败' });
+        }
     };
 
     return (
@@ -182,7 +149,7 @@ export function PresetItemEditor({ preset, onUpdatePreset }: PresetItemEditorPro
                         onDragEnd={handleDragEnd}
                     >
                         <SortableContext
-                            items={localItems.map((item) => item.id!)}
+                            items={localItems.map((item) => item.id)}
                             strategy={verticalListSortingStrategy}
                         >
                             <div className="space-y-2">
@@ -191,7 +158,7 @@ export function PresetItemEditor({ preset, onUpdatePreset }: PresetItemEditorPro
                                         key={item.id}
                                         item={item}
                                         onEdit={handleEditItem}
-                                        onDelete={handleDeleteItem}
+                                        onDelete={() => handleDeleteItem(item.id)}
                                         onDuplicate={handleDuplicateItem}
                                         onToggle={handleToggleEnabled}
                                     />
@@ -205,7 +172,7 @@ export function PresetItemEditor({ preset, onUpdatePreset }: PresetItemEditorPro
             {/* 编辑弹窗 */}
             {editingItem && (
                 <PresetItemEditDialog
-                    item={editingItem}
+                    item={editingItem as PresetItem}
                     open={isDialogOpen}
                     onOpenChange={(open) => {
                         setIsDialogOpen(open);

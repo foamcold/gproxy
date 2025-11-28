@@ -8,7 +8,6 @@ class Preset(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
-    content = Column(Text, nullable=False) # JSON string of messages
     user_id = Column(Integer, ForeignKey("users.id"))
     is_active = Column(Boolean, default=True)
     sort_order = Column(Integer, default=0)
@@ -18,4 +17,5 @@ class Preset(Base):
 
     user = relationship("User")
     regex_rules = relationship("PresetRegexRule", back_populates="preset", cascade="all, delete-orphan")
+    items = relationship("PresetItem", cascade="all, delete-orphan")
 

@@ -9,7 +9,7 @@ import { Switch } from '@/components/ui/switch';
 interface PresetItemRowProps {
     item: PresetItem;
     onEdit: (item: PresetItem) => void;
-    onDelete: (itemId: string) => void;
+    onDelete: (itemId: number) => void;
     onDuplicate: (item: PresetItem) => void;
     onToggle: (item: PresetItem, enabled: boolean) => void;
 }
@@ -40,7 +40,7 @@ export function PresetItemRow({ item, onEdit, onDelete, onDuplicate, onToggle }:
         transform,
         transition,
         isDragging,
-    } = useSortable({ id: item.id! });
+    } = useSortable({ id: item.id });
 
     const style = {
         transform: CSS.Transform.toString(transform),

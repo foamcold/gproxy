@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { PresetItemEditor } from '@/components/preset/PresetItemEditor';
 import { PresetRegexPage } from '@/components/preset/PresetRegexPage';
 import { useToast } from '@/hooks/useToast';
-import { presetService, type Preset, type PresetContent } from '@/services/presetService';
+import { presetService, type Preset } from '@/services/presetService';
+import { presetRegexService } from '@/services/presetRegexService';
 import { exportToJSON, importFromJSON } from '@/utils/exportImport';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -81,15 +82,13 @@ export default function PresetsPage() {
     // 创建新预设
     const handleCreatePreset = async () => {
         try {
-            const emptyContent: PresetContent = { items: [] };
-            const newPreset = await presetService.createPreset({
+            const newPresetData = await presetService.createPreset({
                 name: '新建预设',
-                content: presetService.stringifyPresetContent(emptyContent),
                 is_active: true,
                 sort_order: presets.length,
             });
-            const newPresets = [...presets, newPreset];
-            setPresets(newPresets);
+            const newPreset = { ...newPresetData, items: [] };
+            setPresets([...presets, newPreset]);
             setSelectedPreset(newPreset);
             toast({
                 variant: 'success',
@@ -119,7 +118,6 @@ export default function PresetsPage() {
         try {
             await presetService.updatePreset(selectedPreset.id, {
                 name: renameName,
-                content: selectedPreset.content,
                 is_active: selectedPreset.is_active,
                 sort_order: selectedPreset.sort_order,
             });
@@ -174,7 +172,6 @@ export default function PresetsPage() {
         try {
             const newPreset = await presetService.createPreset({
                 name: `${selectedPreset.name} (副本)`,
-                content: selectedPreset.content,
                 is_active: selectedPreset.is_active,
                 sort_order: presets.length,
             });
@@ -193,87 +190,126 @@ export default function PresetsPage() {
     };
 
     // 导出预设（仅导出选中的）
-    const handleExport = () => {
+    const handleExport = async () => {
         if (!selectedPreset) {
             toast({ variant: 'error', title: '请先选择一个预设' });
             return;
         }
 
-        const content = presetService.parsePresetContent(selectedPreset.content);
-        const exportData = {
-            name: selectedPreset.name,
-            content: JSON.stringify(content, null, 2),
-            is_active: selectedPreset.is_active,
-            creator_username: (selectedPreset as any).creator_username || 'unknown',
-            created_at: (selectedPreset as any).created_at || new Date().toISOString(),
-            updated_at: (selectedPreset as any).updated_at || new Date().toISOString(),
-        };
+        try {
+            // 1. 获取预设内容
+            // The preset items are now directly available on the selectedPreset object.
+            const presetItems = selectedPreset.items || [];
 
-        exportToJSON(exportData, `gproxy-preset-${selectedPreset.name}`);
-        toast({
-            variant: 'success',
-            title: '导出成功',
-        });
+            // 2. 获取关联的正则规则
+            const regexRules = await presetRegexService.getPresetRegexRules(selectedPreset.id);
+
+            // 3. 格式化正则规则用于导出
+            const formattedRegex = regexRules.map(r => ({
+                name: r.name,
+                creator_username: r.creator_username,
+                created_at: r.created_at,
+                updated_at: r.updated_at,
+                enabled: r.is_active, // 注意字段名转换
+                content: {
+                    type: r.type,
+                    pattern: r.pattern,
+                    replacement: r.replacement,
+                }
+            }));
+
+            // 4. 组合成新的导出格式
+            const exportData = {
+                name: selectedPreset.name,
+                type: 'preset',
+                creator_username: (selectedPreset as any).creator_username || 'unknown',
+                created_at: (selectedPreset as any).created_at || new Date().toISOString(),
+                updated_at: (selectedPreset as any).updated_at || new Date().toISOString(),
+                enabled: selectedPreset.is_active,
+                content: {
+                    preset: presetItems.map(item => ({
+                        name: item.name,
+                        creator_username: item.creator_username || 'unknown',
+                        created_at: item.created_at,
+                        updated_at: item.updated_at,
+                        enabled: item.enabled,
+                        role: item.role,
+                        type: item.type,
+                        content: item.content,
+                    })),
+                    regex: formattedRegex,
+                }
+            };
+
+            exportToJSON(exportData, `gproxy-preset-${selectedPreset.name}`);
+            toast({
+                variant: 'success',
+                title: '导出成功',
+            });
+
+        } catch (error) {
+            toast({
+                variant: 'error',
+                title: '导出失败',
+                description: '无法获取关联的正则数据',
+            });
+        }
     };
 
     // 导入预设
     const handleImport = async () => {
         try {
-            const importedPresets = await importFromJSON<Preset[]>();
-            const newPresetsList = [...presets];
+            const importedData = await importFromJSON<any>();
+            
+            const newPreset = await presetService.createPreset({
+                name: importedData.name,
+                is_active: importedData.enabled,
+                sort_order: presets.length,
+            });
 
-            for (const preset of importedPresets) {
-                const newPreset = await presetService.createPreset({
-                    name: preset.name,
-                    content: preset.content,
-                    is_active: preset.is_active,
-                    sort_order: presets.length + importedPresets.indexOf(preset),
-                });
-                newPresetsList.push(newPreset);
+            if (importedData.content && importedData.content.preset) {
+                for (const item of importedData.content.preset) {
+                    await presetService.createPresetItem(newPreset.id, {
+                        name: item.name,
+                        role: item.role,
+                        type: item.type,
+                        content: item.content,
+                        enabled: item.enabled,
+                        sort_order: importedData.content.preset.indexOf(item),
+                    });
+                }
             }
 
-            setPresets(newPresetsList);
-            // 如果之前没有选中预设，导入后选中第一个导入的
-            if (!selectedPreset && newPresetsList.length > 0) {
-                setSelectedPreset(newPresetsList[newPresetsList.length - importedPresets.length]);
+            if (importedData.content && importedData.content.regex) {
+                for (const regexRule of importedData.content.regex) {
+                    await presetRegexService.createPresetRegexRule(newPreset.id, {
+                        name: regexRule.name,
+                        pattern: regexRule.content.pattern,
+                        replacement: regexRule.content.replacement,
+                        type: regexRule.content.type,
+                        is_active: regexRule.enabled,
+                        sort_order: importedData.content.regex.indexOf(regexRule),
+                    });
+                }
             }
+            // 重新获取列表以显示包括新导入的预设
+            await fetchPresets();
 
             toast({
                 variant: 'success',
                 title: '导入成功',
-                description: `成功导入 ${importedPresets.length} 个预设`,
+                description: `成功导入 1 个预设`,
             });
         } catch (error) {
+            console.error("Import failed:", error);
             toast({
                 variant: 'error',
                 title: '导入失败',
+                description: error instanceof Error ? error.message : '未知错误',
             });
         }
     };
 
-    // 更新预设内容
-    const handleUpdatePresetContent = async (id: number, content: string) => {
-        try {
-            const preset = presets.find((p) => p.id === id);
-            if (!preset) return;
-
-            await presetService.updatePreset(id, {
-                name: preset.name,
-                content,
-                is_active: preset.is_active,
-                sort_order: preset.sort_order,
-            });
-
-            const updatedPreset = { ...preset, content };
-            setPresets(presets.map((p) => (p.id === id ? updatedPreset : p)));
-            setSelectedPreset(updatedPreset);
-        } catch (error) {
-            toast({
-                variant: 'error',
-                title: '保存失败',
-            });
-        }
-    };
 
     if (loading) {
         return (
@@ -355,7 +391,7 @@ export default function PresetsPage() {
                         <TabsContent value="items" className="flex-1 m-0 overflow-hidden">
                             <PresetItemEditor
                                 preset={selectedPreset}
-                                onUpdatePreset={handleUpdatePresetContent}
+                                onItemsChange={fetchPresets}
                             />
                         </TabsContent>
                         <TabsContent value="regex" className="flex-1 m-0 overflow-hidden">

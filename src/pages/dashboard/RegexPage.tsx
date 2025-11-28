@@ -281,13 +281,16 @@ export default function RegexPage() {
         // 导出所有正则，格式化JSON
         const exportData = rules.map(rule => ({
             name: rule.name,
-            pattern: rule.pattern,
-            replacement: rule.replacement,
-            type: rule.type,
-            is_active: rule.is_active,
+            type: 'regex',
             creator_username: (rule as any).creator_username || 'unknown',
             created_at: (rule as any).created_at || new Date().toISOString(),
             updated_at: (rule as any).updated_at || new Date().toISOString(),
+            enabled: rule.is_active,
+            content: {
+                type: rule.type,
+                pattern: rule.pattern,
+                replacement: rule.replacement,
+            }
         }));
 
         exportToJSON(exportData, 'gproxy-regex-rules');
@@ -298,13 +301,16 @@ export default function RegexPage() {
     const handleExportSingle = (rule: RegexRule) => {
         const exportData = {
             name: rule.name,
-            pattern: rule.pattern,
-            replacement: rule.replacement,
-            type: rule.type,
-            is_active: rule.is_active,
+            type: 'regex',
             creator_username: (rule as any).creator_username || 'unknown',
             created_at: (rule as any).created_at || new Date().toISOString(),
             updated_at: (rule as any).updated_at || new Date().toISOString(),
+            enabled: rule.is_active,
+            content: {
+                type: rule.type,
+                pattern: rule.pattern,
+                replacement: rule.replacement,
+            }
         };
 
         exportToJSON(exportData, `gproxy-regex-${rule.name}`);
@@ -313,15 +319,18 @@ export default function RegexPage() {
 
     const handleImport = async () => {
         try {
-            const importedRules = await importFromJSON<RegexRule[]>();
+            const importedData = await importFromJSON<any>();
             const token = localStorage.getItem('token');
+            const importedRules = Array.isArray(importedData) ? importedData : [importedData];
+
 
             for (const rule of importedRules) {
+                const ruleContent = rule.content || rule;
                 await axios.post(`${API_BASE_URL}/regex/`, {
-                    name: rule.name,
-                    pattern: rule.pattern,
-                    replacement: rule.replacement,
-                    type: rule.type,
+                    name: ruleContent.name,
+                    pattern: ruleContent.pattern,
+                    replacement: ruleContent.replacement,
+                    type: ruleContent.type,
                     is_active: rule.is_active,
                     sort_order: rules.length + importedRules.indexOf(rule),
                 }, {

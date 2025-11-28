@@ -6,3 +6,4 @@ from app.models.key import OfficialKey, ExclusiveKey
 from app.models.log import Log
 from app.models.system_config import SystemConfig
 from app.models.verification_code import VerificationCode
+from app.models.preset_item import PresetItem

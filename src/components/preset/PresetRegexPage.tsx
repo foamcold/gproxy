@@ -259,13 +259,16 @@ export function PresetRegexPage({ presetId }: PresetRegexPageProps) {
     const handleExportSingle = (rule: PresetRegexRule) => {
         const exportData = {
             name: rule.name,
-            pattern: rule.pattern,
-            replacement: rule.replacement,
-            type: rule.type,
-            is_active: rule.is_active,
+            type: 'regex',
             creator_username: rule.creator_username || 'unknown',
             created_at: rule.created_at || new Date().toISOString(),
             updated_at: rule.updated_at || new Date().toISOString(),
+            enabled: rule.is_active,
+            content: {
+                type: rule.type,
+                pattern: rule.pattern,
+                replacement: rule.replacement,
+            }
         };
 
         exportToJSON(exportData, `gproxy-preset-regex-${rule.name}`);

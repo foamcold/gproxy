@@ -1,10 +1,10 @@
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel
 from datetime import datetime
+from .preset_item import PresetItem
 
 class PresetBase(BaseModel):
     name: str
-    content: str # JSON string
     is_active: Optional[bool] = True
     sort_order: Optional[int] = 0
 
@@ -20,6 +20,7 @@ class Preset(PresetBase):
     creator_username: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+    items: List[PresetItem] = []
 
     class Config:
         from_attributes = True
