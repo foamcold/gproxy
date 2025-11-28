@@ -76,6 +76,12 @@ export function PresetItemEditDialog({
                             value={formData.name}
                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                             placeholder="为此条目命名..."
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleSave();
+                                }
+                            }}
                         />
                     </div>
 
@@ -146,6 +152,12 @@ export function PresetItemEditDialog({
                                 onChange={(e) => setFormData({ ...formData, content: e.target.value })}
                                 className="min-h-[200px] font-mono text-sm"
                                 placeholder="输入条目内容，支持变量如 {{roll 2d6}}, {{random::A::B}}, {{#注释}}..."
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                                        e.preventDefault();
+                                        handleSave();
+                                    }
+                                }}
                             />
                             <div className="text-xs text-muted-foreground space-y-1">
                                 <p>💡 <strong>可用变量：</strong></p>
