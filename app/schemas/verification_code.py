@@ -32,3 +32,10 @@ class VerifyCodeRequest(BaseModel):
     email: str
     code: str
     type: str = "register"
+
+class ResetPasswordRequest(BaseModel):
+    """密码重置请求"""
+    email_or_username: str
+    code: str
+    new_password: str
+

@@ -11,7 +11,7 @@ from app.models.user import User
 from app.models.verification_code import VerificationCode
 from app.models.system_config import SystemConfig
 from app.schemas.token import Token
-from app.schemas.verification_code import SendCodeRequest, VerifyCodeRequest
+from app.schemas.verification_code import SendCodeRequest, VerifyCodeRequest, ResetPasswordRequest
 from app.services.email_service import email_service
 
 router = APIRouter()
@@ -24,8 +24,12 @@ async def login_access_token(
     """
     OAuth2 compatible token login, get an access token for future requests
     """
-    # Authenticate user
-    result = await db.execute(select(User).filter(User.username == form_data.username))
+    # Authenticate user - 支持用户名或邮箱登录
+    result = await db.execute(
+        select(User).filter(
+            (User.username == form_data.username) | (User.email == form_data.username)
+        )
+    )
     user = result.scalars().first()
     
     if not user or not security.verify_password(form_data.password, user.password_hash):
@@ -63,7 +67,13 @@ async def send_verification_code(
     
     # 检查是否需要邮箱验证
     if request.type == "register" and not system_config.require_email_verification:
-        raise HTTPException(status_code=400, detail="系统未开启邮箱验证")
+        raise HTTPException(status_code=403, detail="系统未开启邮箱验证")
+    
+    # 注册类型验证码：检查邮箱是否已被注册
+    if request.type == "register":
+        existing_user = await db.execute(select(User).filter(User.email == request.email))
+        if existing_user.scalars().first():
+            raise HTTPException(status_code=400, detail="该邮箱已被注册")
     
     # 邮箱白名单验证
     if system_config.email_whitelist_enabled:
@@ -159,3 +169,68 @@ async def verify_code(
     await db.commit()
     
     return {"message": "验证成功", "email": request.email}
+
+@router.post("/reset-password")
+async def reset_password(
+    *,
+    db: AsyncSession = Depends(deps.get_db),
+    request: ResetPasswordRequest
+) -> Any:
+    """
+    重置密码
+    
+    - **email_or_username**: 邮箱地址或用户名
+    - **code**: 验证码
+    - **new_password**: 新密码
+    """
+    # 获取系统配置
+    config_result = await db.execute(select(SystemConfig).filter(SystemConfig.id == 1))
+    system_config = config_result.scalars().first()
+    
+    if not system_config:
+        raise HTTPException(status_code=500, detail="未找到系统配置")
+    
+    # 检查是否开启邮箱验证功能
+    if not system_config.require_email_verification:
+        raise HTTPException(status_code=403, detail="系统未开启邮箱验证")
+    
+    # 查找用户（通过邮箱或用户名）
+    user_result = await db.execute(
+        select(User).filter(
+            (User.email == request.email_or_username) | 
+            (User.username == request.email_or_username)
+        )
+    )
+    user = user_result.scalars().first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    
+    # 验证验证码
+    code_result = await db.execute(
+        select(VerificationCode).filter(
+            VerificationCode.email == user.email,
+            VerificationCode.code == request.code,
+            VerificationCode.type == "reset_password",
+            VerificationCode.is_used == False
+        ).order_by(VerificationCode.created_at.desc())
+    )
+    verification_code = code_result.scalars().first()
+    
+    if not verification_code:
+        raise HTTPException(status_code=400, detail="无效的验证码")
+    
+    if verification_code.is_expired():
+        raise HTTPException(status_code=400, detail="验证码已过期")
+    
+    # 更新密码
+    user.password_hash = security.get_password_hash(request.new_password)
+    
+    # 标记验证码为已使用
+    verification_code.is_used = True
+    
+    db.add(user)
+    await db.commit()
+    
+    return {"message": "密码重置成功"}
+

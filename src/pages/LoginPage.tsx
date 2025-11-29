@@ -12,9 +12,12 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export default function LoginPage() {
     const [isLogin, setIsLogin] = useState(true);
+    const [isResetPassword, setIsResetPassword] = useState(false);
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
+    const [emailOrUsername, setEmailOrUsername] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [verificationCode, setVerificationCode] = useState('');
     const [turnstileToken, setTurnstileToken] = useState('');
     const [systemConfig, setSystemConfig] = useState<any>(null);
@@ -95,9 +98,12 @@ export default function LoginPage() {
         }, 1000);
 
         try {
+            const codeType = isResetPassword ? 'reset_password' : 'register';
+            const emailToSend = isResetPassword ? emailOrUsername : email;
+
             await axios.post(`${API_BASE_URL}/auth/send-code`, {
-                email,
-                type: 'register'
+                email: emailToSend,
+                type: codeType
             });
 
             toast({
@@ -212,6 +218,7 @@ export default function LoginPage() {
 
             // 切换到登录模式
             setIsLogin(true);
+            setIsResetPassword(false);
             setVerificationCode('');
             setTurnstileToken('');
         } catch (error: any) {
@@ -219,6 +226,54 @@ export default function LoginPage() {
                 variant: 'error',
                 title: '注册失败',
                 description: error.response?.data?.detail || '注册失败，请重试',
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // 重置密码
+    const handleResetPassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+
+        try {
+            // 验证两次密码是否一致
+            if (password !== confirmPassword) {
+                toast({
+                    variant: 'error',
+                    title: '密码不一致',
+                    description: '两次输入的密码不一致，请重新输入',
+                });
+                setLoading(false);
+                return;
+            }
+
+            // 调用重置密码API
+            await axios.post(`${API_BASE_URL}/auth/reset-password`, {
+                email_or_username: emailOrUsername,
+                code: verificationCode,
+                new_password: password
+            });
+
+            toast({
+                variant: 'success',
+                title: '密码重置成功',
+                description: '请使用新密码登录',
+            });
+
+            // 切换到登录模式并清空表单
+            setIsLogin(true);
+            setIsResetPassword(false);
+            setEmailOrUsername('');
+            setVerificationCode('');
+            setPassword('');
+            setConfirmPassword('');
+        } catch (error: any) {
+            toast({
+                variant: 'error',
+                title: '重置失败',
+                description: error.response?.data?.detail || '密码重置失败，请重试',
             });
         } finally {
             setLoading(false);
@@ -242,8 +297,11 @@ export default function LoginPage() {
                     <div className="flex rounded-lg border p-1 mb-6">
                         <button
                             type="button"
-                            onClick={() => setIsLogin(true)}
-                            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${isLogin
+                            onClick={() => {
+                                setIsLogin(true);
+                                setIsResetPassword(false);
+                            }}
+                            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${isLogin && !isResetPassword
                                 ? 'bg-primary text-primary-foreground'
                                 : 'text-muted-foreground hover:text-foreground'
                                 }`}
@@ -252,27 +310,45 @@ export default function LoginPage() {
                         </button>
                         <button
                             type="button"
-                            onClick={() => setIsLogin(false)}
-                            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${!isLogin
+                            onClick={() => {
+                                setIsLogin(false);
+                                setIsResetPassword(false);
+                            }}
+                            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${!isLogin && !isResetPassword
                                 ? 'bg-primary text-primary-foreground'
                                 : 'text-muted-foreground hover:text-foreground'
                                 }`}
                         >
                             注册
                         </button>
+                        {systemConfig?.require_email_verification && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsLogin(false);
+                                    setIsResetPassword(true);
+                                }}
+                                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${isResetPassword
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'text-muted-foreground hover:text-foreground'
+                                    }`}
+                            >
+                                重置密码
+                            </button>
+                        )}
                     </div>
 
                     {/* 登录表单 */}
-                    {isLogin ? (
+                    {isLogin && !isResetPassword ? (
                         <form onSubmit={handleLogin} className="space-y-4">
                             <div className="space-y-2">
-                                <Label htmlFor="login-username">用户名</Label>
+                                <Label htmlFor="login-username">用户名或邮箱</Label>
                                 <div className="relative">
                                     <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                     <Input
                                         id="login-username"
                                         type="text"
-                                        placeholder="输入用户名"
+                                        placeholder="输入用户名或邮箱"
                                         value={username}
                                         onChange={(e) => setUsername(e.target.value)}
                                         className="pl-10"
@@ -299,6 +375,101 @@ export default function LoginPage() {
 
                             <Button type="submit" className="w-full" disabled={loading}>
                                 {loading ? '登录中...' : '登录'}
+                            </Button>
+                        </form>
+                    ) : isResetPassword ? (
+                        /* 重置密码表单 */
+                        <form onSubmit={handleResetPassword} className="space-y-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="reset-email-username">用户名或邮箱</Label>
+                                <div className="relative">
+                                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                    <Input
+                                        id="reset-email-username"
+                                        type="text"
+                                        placeholder="输入用户名或邮箱"
+                                        value={emailOrUsername}
+                                        onChange={(e) => setEmailOrUsername(e.target.value)}
+                                        className="pl-10"
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="reset-code">验证码</Label>
+                                <div className="flex gap-2">
+                                    <div className="relative flex-1">
+                                        <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                        <Input
+                                            id="reset-code"
+                                            type="text"
+                                            placeholder="输入6位验证码"
+                                            value={verificationCode}
+                                            onChange={(e) => setVerificationCode(e.target.value)}
+                                            className="pl-10"
+                                            maxLength={6}
+                                            required
+                                        />
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={handleSendCode}
+                                        disabled={countdown > 0 || !emailOrUsername}
+                                        className="shrink-0"
+                                    >
+                                        {countdown > 0 ? `${countdown}s` : '发送'}
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="reset-new-password">新密码</Label>
+                                <div className="relative">
+                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                    <Input
+                                        id="reset-new-password"
+                                        type="password"
+                                        placeholder="输入新密码（至少6位）"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        className="pl-10"
+                                        required
+                                        minLength={6}
+                                        pattern="^(?!\d+$).{6,}$"
+                                        onInvalid={(e) => {
+                                            const target = e.target as HTMLInputElement;
+                                            if (target.value.length < 6) {
+                                                target.setCustomValidity('密码长度不能少于6位');
+                                            } else {
+                                                target.setCustomValidity('密码不能为纯数字');
+                                            }
+                                        }}
+                                        onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="reset-confirm-password">确认密码</Label>
+                                <div className="relative">
+                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                    <Input
+                                        id="reset-confirm-password"
+                                        type="password"
+                                        placeholder="再次输入新密码"
+                                        value={confirmPassword}
+                                        onChange={(e) => setConfirmPassword(e.target.value)}
+                                        className="pl-10"
+                                        required
+                                        minLength={6}
+                                    />
+                                </div>
+                            </div>
+
+                            <Button type="submit" className="w-full" disabled={loading}>
+                                {loading ? '重置中...' : '重置密码'}
                             </Button>
                         </form>
                     ) : (

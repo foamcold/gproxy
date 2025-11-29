@@ -4,6 +4,7 @@ import { API_BASE_URL } from '@/utils/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 
 export default function ProfilePage() {
     const [user, setUser] = useState<any>(null);
@@ -42,6 +43,16 @@ export default function ProfilePage() {
         }
     };
 
+    // 将角色转换为中文
+    const getRoleDisplayName = (role: string) => {
+        const roleMap: Record<string, string> = {
+            'user': '用户',
+            'admin': '管理员',
+            'super_admin': '超级管理员'
+        };
+        return roleMap[role] || role;
+    };
+
     if (!user) return <div>加载中...</div>;
 
     return (
@@ -57,7 +68,7 @@ export default function ProfilePage() {
                 <h2 className="text-xl font-semibold">资料设置</h2>
 
                 {message && (
-                    <div className={cn("p-3 rounded text-sm", message.includes('success') ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800")}>
+                    <div className={cn("p-3 rounded text-sm", message.includes('成功') ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800")}>
                         {message}
                     </div>
                 )}
@@ -66,6 +77,16 @@ export default function ProfilePage() {
                     <div className="space-y-2">
                         <Label htmlFor="username">用户名</Label>
                         <Input id="username" value={user.username} disabled className="bg-muted" />
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="user-id">用户ID</Label>
+                        <Input id="user-id" value={user.id} disabled className="bg-muted" />
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="user-role">用户权限</Label>
+                        <Input id="user-role" value={getRoleDisplayName(user.role)} disabled className="bg-muted" />
                     </div>
 
                     <div className="space-y-2">
@@ -91,22 +112,6 @@ export default function ProfilePage() {
                     <Button type="submit">更新资料</Button>
                 </form>
             </div>
-
-            <div className="bg-card border rounded-lg p-6">
-                <h2 className="text-xl font-semibold mb-4">系统信息</h2>
-                <div className="space-y-2 text-sm">
-                    <div className="flex justify-between py-2 border-b">
-                        <span className="text-muted-foreground">角色</span>
-                        <span className="font-medium capitalize">{user.role}</span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b">
-                        <span className="text-muted-foreground">用户ID</span>
-                        <span className="font-medium">{user.id}</span>
-                    </div>
-                </div>
-            </div>
         </div>
     );
 }
-
-import { cn } from '@/lib/utils';
