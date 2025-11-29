@@ -1,5 +1,6 @@
 from typing import Optional
 from pydantic import BaseModel, EmailStr
+from datetime import datetime, timezone
 
 class UserBase(BaseModel):
     email: EmailStr
@@ -15,9 +16,13 @@ class UserUpdate(UserBase):
 
 class UserInDBBase(UserBase):
     id: int
-    
+    created_at: datetime
+
     class Config:
         from_attributes = True
+        json_encoders = {
+            datetime: lambda v: v.replace(tzinfo=timezone.utc).isoformat().replace('+00:00', 'Z')
+        }
 
 class User(UserInDBBase):
     pass

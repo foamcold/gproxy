@@ -45,9 +45,18 @@ async def read_users(
     result = await db.execute(query.offset(skip).limit(size))
     users = result.scalars().all()
     
+    # 手动将 SQLAlchemy 模型转换为 Pydantic Schema，并处理验证错误
+    user_schemas = []
+    for user in users:
+        try:
+            user_schemas.append(UserSchema.from_orm(user))
+        except Exception:
+            # 如果有脏数据导致验证失败，跳过该用户
+            continue
+    
     return PaginatedResponse(
         total=total,
-        items=users,
+        items=user_schemas,
         page=page,
         size=size
     )

@@ -278,7 +278,7 @@ export default function AdminUsersPage() {
                                         </span>
                                     </td>
                                     <td className="p-4 text-muted-foreground">
-                                        {user.created_at ? format(toZonedTime(new Date(user.created_at), 'Asia/Shanghai'), 'yyyy-MM-dd HH:mm:ss') : '-'}
+                                        {format(toZonedTime(new Date(user.created_at), 'Asia/Shanghai'), 'yyyy-MM-dd HH:mm:ss')}
                                     </td>
                                     <td className="p-4">
                                         <div className="flex gap-2">
