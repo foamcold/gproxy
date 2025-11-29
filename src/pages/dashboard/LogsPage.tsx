@@ -1,10 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { API_BASE_URL } from '@/utils/api';
 import { cn } from '@/lib/utils';
 import MaskedKey from '@/components/MaskedKey';
+import { Pagination } from '@/components/ui/pagination';
+import { Button } from '@/components/ui/button';
+import { RefreshCw } from 'lucide-react';
+import { useToast } from '@/hooks/useToast';
 
 interface Log {
     id: number;
@@ -21,34 +25,52 @@ interface Log {
     official_key_key: string;
 }
 
-export default function LogsPage() {
-    const [logs, setLogs] = useState<Log[]>([]);
+interface PaginatedResponse<T> {
+    total: number;
+    items: T[];
+    page: number;
+    size: number;
+}
 
-    const fetchLogs = async () => {
+export default function LogsPage() {
+    const [logData, setLogData] = useState<PaginatedResponse<Log>>({ items: [], total: 0, page: 1, size: 20 });
+    const [loading, setLoading] = useState(false);
+    const { toast } = useToast();
+
+    const fetchLogs = useCallback(async (page = 1, size = 20) => {
+        setLoading(true);
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.get(`${API_BASE_URL}/logs/`, {
-                headers: { Authorization: `Bearer ${token}` }
+            const response = await axios.get<PaginatedResponse<Log>>(`${API_BASE_URL}/logs/`, {
+                headers: { Authorization: `Bearer ${token}` },
+                params: { page, size }
             });
-            setLogs(response.data);
+            setLogData(response.data);
         } catch (error) {
             console.error('Failed to fetch logs', error);
+            toast({ variant: 'error', title: '加载日志失败' });
+        } finally {
+            setLoading(false);
         }
-    };
+    }, [toast]);
 
     useEffect(() => {
-        fetchLogs();
-        const interval = setInterval(fetchLogs, 5000); // Auto refresh
-        return () => clearInterval(interval);
-    }, []);
+        fetchLogs(1, 20);
+    }, [fetchLogs]);
 
     return (
         <div className="space-y-6">
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">日志</h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                    查看系统请求记录和错误日志
-                </p>
+            <div className="flex justify-between items-center">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">日志</h1>
+                    <p className="text-sm text-muted-foreground mt-1">
+                        查看系统请求记录和错误日志
+                    </p>
+                </div>
+                <Button onClick={() => fetchLogs(logData.page, logData.size)} disabled={loading} variant="outline">
+                    <RefreshCw className={cn("w-4 h-4 mr-2", loading && "animate-spin")} />
+                    刷新
+                </Button>
             </div>
 
             <div className="bg-card border rounded-lg overflow-hidden">
@@ -66,14 +88,14 @@ export default function LogsPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y">
-                            {logs.length === 0 ? (
+                            {logData.items.length === 0 ? (
                                 <tr>
                                     <td colSpan={7} className="p-8 text-center text-muted-foreground">
                                         未找到日志。
                                     </td>
                                 </tr>
                             ) : (
-                                logs.map((log) => (
+                                logData.items.map((log) => (
                                     <tr key={log.id} className="hover:bg-accent/50">
                                         <td className="p-4 whitespace-nowrap">
                                             {format(toZonedTime(new Date(log.created_at), 'Asia/Shanghai'), 'yyyy-MM-dd HH:mm:ss')}
@@ -103,6 +125,15 @@ export default function LogsPage() {
                     </table>
                 </div>
             </div>
+            
+            <Pagination
+                currentPage={logData.page}
+                totalPages={Math.ceil(logData.total / logData.size)}
+                pageSize={logData.size}
+                totalItems={logData.total}
+                onPageChange={(page) => fetchLogs(page, logData.size)}
+                onPageSizeChange={(size) => fetchLogs(1, size)}
+            />
         </div>
     );
 }

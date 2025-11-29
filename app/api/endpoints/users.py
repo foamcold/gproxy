@@ -3,25 +3,54 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-
+from sqlalchemy import func
 from app.api import deps
 from app.core import security
 from app.models.user import User
 from app.schemas.user import User as UserSchema, UserUpdate
+from app.schemas.common import PaginatedResponse
 
 router = APIRouter()
 
-@router.get("/", response_model=List[UserSchema])
+@router.get("/", response_model=PaginatedResponse[UserSchema])
 async def read_users(
     db: AsyncSession = Depends(deps.get_db),
+    page: int = 1,
+    size: int = 20,
+    q: str = None,
     current_user: User = Depends(deps.get_current_active_superuser),
 ) -> Any:
     """
-    Retrieve users.
+    Retrieve users with pagination and search.
     """
-    result = await db.execute(select(User))
+    skip = (page - 1) * size
+    query = select(User)
+
+    if q:
+        # 尝试按ID搜索
+        try:
+            user_id = int(q)
+            query = query.filter(User.id == user_id)
+        except ValueError:
+            # 按用户名或邮箱模糊搜索
+            query = query.filter(
+                (User.username.ilike(f"%{q}%")) |
+                (User.email.ilike(f"%{q}%"))
+            )
+    
+    # 获取总数
+    count_query = select(func.count()).select_from(query.subquery())
+    total = await db.scalar(count_query)
+    
+    result = await db.execute(query.offset(skip).limit(size))
     users = result.scalars().all()
-    return users
+    
+    return PaginatedResponse(
+        total=total,
+        items=users,
+        page=page,
+        size=size
+    )
 
 @router.post("/create", response_model=UserSchema)
 async def create_user(
@@ -173,34 +202,3 @@ async def delete_user(
     await db.refresh(user)
     return user
 
-@router.get("/search", response_model=List[UserSchema])
-async def search_users(
-    *,
-    db: AsyncSession = Depends(deps.get_db),
-    q: str = "",
-    current_user: User = Depends(deps.get_current_active_superuser),
-) -> Any:
-    """
-    Search users by ID or username.
-    """
-    if not q:
-        # 如果没有搜索词，返回所有用户
-        result = await db.execute(select(User))
-        users = result.scalars().all()
-        return users
-    
-    # 尝试按ID搜索
-    try:
-        user_id = int(q)
-        result = await db.execute(select(User).filter(User.id == user_id))
-        user = result.scalars().first()
-        return [user] if user else []
-    except ValueError:
-        pass
-    
-    # 按用户名模糊搜索
-    result = await db.execute(
-        select(User).filter(User.username.ilike(f"%{q}%"))
-    )
-    users = result.scalars().all()
-    return users

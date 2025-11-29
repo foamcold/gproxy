@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { format } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
 import { API_BASE_URL } from '@/utils/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +19,7 @@ import { useToast } from '@/hooks/useToast';
 import { Search, UserPlus, Ban, Trash2, UserCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { confirm } from '@/components/ui/ConfirmDialog';
+import { Pagination } from '@/components/ui/pagination';
 
 interface User {
     id: number;
@@ -27,34 +30,28 @@ interface User {
     created_at: string;
 }
 
+interface PaginatedResponse<T> {
+    total: number;
+    items: T[];
+    page: number;
+    size: number;
+}
+
 export default function AdminUsersPage() {
-    const [users, setUsers] = useState<User[]>([]);
-    const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+    const [userData, setUserData] = useState<PaginatedResponse<User>>({ items: [], total: 0, page: 1, size: 10 });
     const [searchQuery, setSearchQuery] = useState('');
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [formData, setFormData] = useState({ username: '', email: '', password: '', role: 'user', is_active: true });
     const { toast } = useToast();
 
-    useEffect(() => {
-        fetchUsers();
-    }, []);
-
-    useEffect(() => {
-        if (!searchQuery.trim()) {
-            setFilteredUsers(users);
-        } else {
-            handleSearch();
-        }
-    }, [searchQuery, users]);
-
-    const fetchUsers = async () => {
+    const fetchUsers = useCallback(async (page = 1, size = 10, query = '') => {
         const token = localStorage.getItem('token');
         try {
-            const response = await axios.get<User[]>(`${API_BASE_URL}/users/`, {
-                headers: { Authorization: `Bearer ${token}` }
+            const response = await axios.get<PaginatedResponse<User>>(`${API_BASE_URL}/users/`, {
+                headers: { Authorization: `Bearer ${token}` },
+                params: { page, size, q: query }
             });
-            setUsers(response.data);
-            setFilteredUsers(response.data);
+            setUserData(response.data);
         } catch (error) {
             toast({
                 variant: 'error',
@@ -62,27 +59,12 @@ export default function AdminUsersPage() {
                 description: '无法加载用户列表',
             });
         }
-    };
+    }, [toast]);
 
-    const handleSearch = async () => {
-        if (!searchQuery.trim()) {
-            setFilteredUsers(users);
-            return;
-        }
+    useEffect(() => {
+        fetchUsers(1, 10, searchQuery);
+    }, [fetchUsers, searchQuery]);
 
-        const token = localStorage.getItem('token');
-        try {
-            const response = await axios.get<User[]>(`${API_BASE_URL}/users/search?q=${searchQuery}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setFilteredUsers(response.data);
-        } catch (error) {
-            toast({
-                variant: 'error',
-                title: '搜索失败',
-            });
-        }
-    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -93,7 +75,7 @@ export default function AdminUsersPage() {
             });
             setIsDialogOpen(false);
             setFormData({ username: '', email: '', password: '', role: 'user', is_active: true });
-            fetchUsers();
+            fetchUsers(userData.page, userData.size, searchQuery);
             toast({
                 variant: 'success',
                 title: '创建成功',
@@ -121,7 +103,7 @@ export default function AdminUsersPage() {
             await axios.put(`${API_BASE_URL}/users/${user.id}/toggle-active`, {}, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            fetchUsers();
+            fetchUsers(userData.page, userData.size, searchQuery);
             toast({
                 variant: 'success',
                 title: '状态已更新',
@@ -143,7 +125,7 @@ export default function AdminUsersPage() {
             await axios.delete(`${API_BASE_URL}/users/${userId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            fetchUsers();
+            fetchUsers(userData.page, userData.size, searchQuery);
             toast({
                 variant: 'success',
                 title: '用户已注销',
@@ -263,14 +245,14 @@ export default function AdminUsersPage() {
                         </tr>
                     </thead>
                     <tbody className="divide-y">
-                        {filteredUsers.length === 0 ? (
+                        {userData.items.length === 0 ? (
                             <tr>
                                 <td colSpan={7} className="p-8 text-center text-muted-foreground">
                                     {searchQuery ? '未找到匹配的用户' : '暂无用户'}
                                 </td>
                             </tr>
                         ) : (
-                            filteredUsers.map((user) => (
+                            userData.items.map((user) => (
                                 <tr key={user.id} className="hover:bg-accent/50">
                                     <td className="p-4">{user.id}</td>
                                     <td className="p-4 font-medium">{user.username}</td>
@@ -296,7 +278,7 @@ export default function AdminUsersPage() {
                                         </span>
                                     </td>
                                     <td className="p-4 text-muted-foreground">
-                                        {new Date(user.created_at).toLocaleDateString()}
+                                        {user.created_at ? format(toZonedTime(new Date(user.created_at), 'Asia/Shanghai'), 'yyyy-MM-dd HH:mm:ss') : '-'}
                                     </td>
                                     <td className="p-4">
                                         <div className="flex gap-2">
@@ -312,15 +294,6 @@ export default function AdminUsersPage() {
                                                     <UserCheck className="w-4 h-4 text-green-600" />
                                                 )}
                                             </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => handleDelete(user.id, user.username)}
-                                                className="text-destructive"
-                                                title="注销用户"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </Button>
                                         </div>
                                     </td>
                                 </tr>
@@ -329,6 +302,15 @@ export default function AdminUsersPage() {
                     </tbody>
                 </table>
             </div>
+
+            <Pagination
+                currentPage={userData.page}
+                totalPages={Math.ceil(userData.total / userData.size)}
+                pageSize={userData.size}
+                totalItems={userData.total}
+                onPageChange={(page) => fetchUsers(page, userData.size, searchQuery)}
+                onPageSizeChange={(size) => fetchUsers(1, size, searchQuery)}
+            />
         </div>
     );
 }
