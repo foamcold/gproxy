@@ -100,11 +100,14 @@ async def get_official_key_from_proxy(
         # 兼容某些客户端可能使用的 x-goog-api-key 或 key 参数
         client_key = request.headers.get("x-goog-api-key") or request.query_params.get("key")
         if not client_key:
+            print("DEBUG: deps - 未找到 API 密钥")
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="未提供 API 密钥")
     else:
         client_key = auth_header.split(" ")[1]
 
-    if client_key.startswith("gapi-"):
+    print(f"DEBUG: deps - 提取到的 Key: {client_key}, 来源: {'Auth Header' if auth_header else 'Query/X-Header'}")
+
+    if client_key and client_key.startswith("gapi-"):
         # 是专属密钥，需要验证并轮询
         result = await db.execute(
             select(ExclusiveKey).filter(ExclusiveKey.key == client_key, ExclusiveKey.is_active == True)

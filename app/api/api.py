@@ -11,6 +11,6 @@ api_router.include_router(regex.router, prefix="/regex", tags=["regex"])
 api_router.include_router(preset_regex.router, tags=["preset_regex"])  # 预设内部正则
 api_router.include_router(logs.router, prefix="/logs", tags=["logs"])
 api_router.include_router(system.router, prefix="/system", tags=["system"])
-api_router.include_router(generic_proxy.router, tags=["generic_proxy"]) # Generic proxy at root
-api_router.include_router(gemini_routes.router, tags=["gemini_routes"]) # Native Gemini API proxy
+# api_router.include_router(gemini_routes.router, tags=["gemini_routes"]) # 移至 main.py 根路径挂载
+# api_router.include_router(generic_proxy.router, tags=["generic_proxy"]) # 移至 main.py 根路径挂载
 

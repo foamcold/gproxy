@@ -109,9 +109,10 @@ class UniversalConverter:
         contents = []
         system_instruction = None
         
+        system_parts = []
         for msg in request.messages:
             if msg.role == "system":
-                system_instruction = {"parts": [{"text": msg.content}]}
+                system_parts.append({"text": msg.content})
             elif msg.role == "user":
                 parts = []
                 if isinstance(msg.content, str):
@@ -177,8 +178,8 @@ class UniversalConverter:
                 "stopSequences": request.stop if isinstance(request.stop, list) else [request.stop] if request.stop else []
             }
         }
-        if system_instruction:
-            payload["system_instruction"] = system_instruction
+        if system_parts:
+            payload["system_instruction"] = {"parts": system_parts}
         
         # 工具和工具选择的转换
         if request.tools:
@@ -227,6 +228,11 @@ class UniversalConverter:
                     for part in candidate["content"]["parts"]:
                         if "text" in part:
                             content_str += part["text"]
+                        elif "thought" in part:
+                            # 将 Gemini 的 thought 转为 OpenAI 的 reasoning_content (非标准但广泛支持)
+                            if "reasoning_content" not in message:
+                                message["reasoning_content"] = ""
+                            message["reasoning_content"] += str(part["thought"])
                         elif "functionCall" in part:
                             fc = part["functionCall"]
                             tool_calls.append({
@@ -266,6 +272,60 @@ class UniversalConverter:
                 "total_tokens": usage.get("totalTokenCount", 0),
             },
         }
+
+    def openai_response_to_gemini_response(self, response: Dict[str, Any]) -> Dict[str, Any]:
+        """将OpenAI响应转换为Gemini响应"""
+        # OpenAI Response: {"id":..., "choices":[{"message":{"content":...}}], ...}
+        # Gemini Response: {"candidates": [{"content": {"parts": [{"text": ...}], "role": "model"}}]}
+        
+        candidates = []
+        if "choices" in response:
+            for choice in response["choices"]:
+                parts = []
+                message = choice.get("message", {})
+                content = message.get("content")
+                if content:
+                    parts.append({"text": content})
+                
+                # 处理 function calls
+                if "tool_calls" in message:
+                     for tool_call in message["tool_calls"]:
+                        if tool_call["type"] == "function":
+                            parts.append({
+                                "functionCall": {
+                                    "name": tool_call["function"]["name"],
+                                    "args": json.loads(tool_call["function"]["arguments"])
+                                }
+                            })
+
+                if parts:
+                    candidate = {
+                        "content": {
+                            "role": "model",
+                            "parts": parts
+                        },
+                        "finishReason": "STOP" # Default
+                    }
+                    
+                    if choice.get("finish_reason") == "length":
+                        candidate["finishReason"] = "MAX_TOKENS"
+                    elif choice.get("finish_reason") == "tool_calls":
+                         candidate["finishReason"] = "STOP" # Gemini uses STOP for function calls too usually, or handled differently
+                    
+                    candidates.append(candidate)
+
+        gemini_response = {"candidates": candidates}
+        
+        # Usage metadata
+        if "usage" in response:
+            usage = response["usage"]
+            gemini_response["usageMetadata"] = {
+                "promptTokenCount": usage.get("prompt_tokens", 0),
+                "candidatesTokenCount": usage.get("completion_tokens", 0),
+                "totalTokenCount": usage.get("total_tokens", 0)
+            }
+            
+        return gemini_response
 
     # --- OpenAI <-> Claude ---
 
@@ -357,6 +417,11 @@ class UniversalConverter:
                     for part in candidate["content"]["parts"]:
                         if "text" in part:
                             content_str += part["text"]
+                        elif "thought" in part:
+                             # 将 Gemini 的 thought 转为 OpenAI 的 reasoning_content
+                            if "reasoning_content" not in delta:
+                                delta["reasoning_content"] = ""
+                            delta["reasoning_content"] += str(part["thought"])
                         elif "functionCall" in part:
                             fc = part["functionCall"]
                             tool_calls.append({
@@ -382,6 +447,49 @@ class UniversalConverter:
             "model": model,
             "choices": choices
         }
+
+    def openai_chunk_to_gemini_chunk(self, chunk: Dict[str, Any]) -> Dict[str, Any]:
+        """将OpenAI流式块转换为Gemini格式"""
+        # OpenAI Chunk: {"choices": [{"delta": {"content": "..."}}]}
+        # Gemini Chunk: {"candidates": [{"content": {"parts": [{"text": "..."}]}}]}
+        
+        candidates = []
+        if "choices" in chunk:
+            for choice in chunk["choices"]:
+                delta = choice.get("delta", {})
+                parts = []
+                
+                content = delta.get("content")
+                if content:
+                    parts.append({"text": content})
+                    
+                if "reasoning_content" in delta:
+                     parts.append({"thought": delta["reasoning_content"]}) # Custom extension for now
+
+                # TODO: Handle tool_calls in stream if needed
+
+                if parts:
+                    candidates.append({
+                        "content": {
+                            "parts": parts,
+                            "role": "model"
+                        }
+                    })
+                    
+                # finish_reason
+                if choice.get("finish_reason"):
+                     # 如果是结束块，Gemini 有时会在最后一个块发送 finishReason
+                     # 但通常流式中间块不需要 finishReason，除非结束
+                     finish_reason = "STOP"
+                     if choice["finish_reason"] == "length": finish_reason = "MAX_TOKENS"
+                     
+                     # 查找或创建 candidate
+                     if not candidates:
+                         candidates.append({"content": {"parts": [], "role": "model"}})
+                     
+                     candidates[0]["finishReason"] = finish_reason
+
+        return {"candidates": candidates}
 
     def claude_to_openai_chunk(self, chunk: Dict[str, Any], model: str) -> Dict[str, Any]:
         """将Claude流式块转换为OpenAI格式"""

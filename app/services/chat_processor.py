@@ -20,6 +20,7 @@ from sqlalchemy.future import select
 from fastapi import Request
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG) # 强制开启DEBUG日志
 
 class ChatProcessor:
     def __init__(self):
@@ -32,7 +33,8 @@ class ChatProcessor:
         official_key: str,
         exclusive_key: ExclusiveKey,
         user: User,
-        log_level: str
+        log_level: str,
+        model_override: str = None
     ) -> Tuple[Dict[str, Any], int, ApiFormat]:
         """
         处理聊天请求的核心逻辑，包括格式转换、预设、正则等。
@@ -41,17 +43,27 @@ class ChatProcessor:
         body = await request.json()
         target_format = "gemini" # 目前上游固定为Gemini
         
+        print(f"DEBUG: 原始请求 body: {body}")
         converted_body, original_format = await universal_converter.convert_request(body, "openai")
+        
+        # 如果有模型覆盖，使用覆盖的模型
+        if model_override:
+            converted_body["model"] = model_override
+            
+        print(f"DEBUG: 转换为 OpenAI 格式: {converted_body}")
         openai_request = ChatCompletionRequest(**converted_body)
 
         # 2. 加载预设和正则
         presets, regex_rules, preset_regex_rules = await self._load_context(db, exclusive_key)
+        print(f"DEBUG: 加载的预设: {presets}")
 
         # 3. 应用前置处理（正则 -> 预设 -> 变量）
         openai_request = self._apply_preprocessing(openai_request, presets, regex_rules, preset_regex_rules)
+        print(f"DEBUG: 预设处理后的 Messages: {[m.dict() for m in openai_request.messages]}")
 
         # 4. 再次转换到目标格式
         final_payload, _ = await universal_converter.convert_request(openai_request.dict(), target_format)
+        print(f"DEBUG: 最终发往上游的 Gemini Payload: {final_payload}")
         
         # 5. 发送到上游并处理响应
         if openai_request.stream:
@@ -170,10 +182,9 @@ class ChatProcessor:
             openai_response['choices'][0]['message']['content'] = content
 
         # 注意：这里我们转换的是Response，不再使用convert_request
-        # 目前我们只实现了到OpenAI的Response转换，如果需要支持其他输出格式，需要增加 convert_response 方法
-        # 假设 original_format 如果是 "gemini"，我们需要把 OpenAI Response 转回 Gemini Response
-        # 暂时如果 original_format 是 openai，我们直接返回。
-        # TODO: Implement universal_converter.convert_response(openai_response, original_format)
+        if original_format == "gemini":
+            gemini_response = universal_converter.openai_response_to_gemini_response(openai_response)
+            return gemini_response, 200, original_format
         
         return openai_response, 200, original_format
 
@@ -218,7 +229,12 @@ class ChatProcessor:
                             openai_chunk['choices'][0]['delta']['content'] = content
                             logger.debug(f"后置处理后的内容: {content}")
                         
-                        yield f"data: {json.dumps(openai_chunk)}\n\n".encode()
+                        # 如果原始请求是 Gemini 格式，则将 OpenAI Chunk 转回 Gemini Chunk
+                        if original_format == "gemini":
+                            gemini_response_chunk = universal_converter.openai_chunk_to_gemini_chunk(openai_chunk)
+                            yield f"data: {json.dumps(gemini_response_chunk)}\n\n".encode()
+                        else:
+                            yield f"data: {json.dumps(openai_chunk)}\n\n".encode()
                         
                         # 将 buffer 指针向前移动，准备解析下一个对象
                         buffer = buffer[idx:]

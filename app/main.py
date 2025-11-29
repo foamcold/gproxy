@@ -34,9 +34,18 @@ app = FastAPI(
 from app.api.api import api_router
 from app.api.endpoints import generic_proxy
 from app.api.endpoints import proxy
+from app.api.endpoints import gemini_routes
 
 app.include_router(api_router, prefix=settings.VITE_API_STR)
+
+# 根路径路由挂载顺序至关重要
+# 1. Gemini Native Routes (/v1beta...) - 优先匹配，处理新逻辑
+app.include_router(gemini_routes.router)
+
+# 2. OpenAI Compatible Routes (/v1...) - 包含旧的 /v1beta 透传逻辑（会被上面的 gemini_routes 覆盖）
 app.include_router(proxy.router)
+
+# 3. Generic Proxy (Catch-all) - 最后匹配
 app.include_router(generic_proxy.router, tags=["generic_proxy"])
 
 @app.get("/")
