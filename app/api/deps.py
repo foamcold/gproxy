@@ -29,21 +29,21 @@ async def get_current_user(
     except (JWTError, ValidationError):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Could not validate credentials",
+            detail="无法验证凭据",
         )
     
     result = await db.execute(select(User).filter(User.id == int(token_data.sub)))
     user = result.scalars().first()
     
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="用户不存在")
     return user
 
 async def get_current_active_user(
     current_user: User = Depends(get_current_user),
 ) -> User:
     if not current_user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
+        raise HTTPException(status_code=400, detail="用户已被禁用")
     return current_user
 
 async def get_current_active_superuser(
@@ -51,7 +51,7 @@ async def get_current_active_superuser(
 ) -> User:
     if current_user.role != "admin":
         raise HTTPException(
-            status_code=400, detail="The user doesn't have enough privileges"
+            status_code=400, detail="用户权限不足"
         )
     return current_user
 

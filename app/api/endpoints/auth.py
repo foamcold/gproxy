@@ -29,10 +29,10 @@ async def login_access_token(
     user = result.scalars().first()
     
     if not user or not security.verify_password(form_data.password, user.password_hash):
-        raise HTTPException(status_code=400, detail="Incorrect email or password")
+        raise HTTPException(status_code=400, detail="用户名或密码错误")
     
     if not user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
+        raise HTTPException(status_code=400, detail="用户已被禁用")
         
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     return {
@@ -59,24 +59,24 @@ async def send_verification_code(
     system_config = config_result.scalars().first()
     
     if not system_config:
-        raise HTTPException(status_code=500, detail="System config not found")
+        raise HTTPException(status_code=500, detail="未找到系统配置")
     
     # 检查是否需要邮箱验证
     if request.type == "register" and not system_config.require_email_verification:
-        raise HTTPException(status_code=400, detail="Email verification not required")
+        raise HTTPException(status_code=400, detail="系统未开启邮箱验证")
     
     # 邮箱白名单验证
     if system_config.email_whitelist_enabled:
         domain = request.email.split('@')[1]
         whitelist = system_config.email_whitelist or []
         if domain not in whitelist:
-            raise HTTPException(status_code=403, detail="Email domain not allowed")
+            raise HTTPException(status_code=403, detail="该邮箱域名不被允许")
     
     # 检查邮箱别名限制
     if system_config.email_alias_restriction:
         local_part = request.email.split('@')[0]
         if '+' in local_part or '.' in local_part:
-            raise HTTPException(status_code=403, detail="Email alias not allowed")
+            raise HTTPException(status_code=403, detail="不支持邮箱别名")
     
     # 检查是否在60秒内已发送过验证码
     time_60s_ago = datetime.now(timezone.utc) - timedelta(seconds=60)
@@ -88,7 +88,7 @@ async def send_verification_code(
         ).order_by(VerificationCode.created_at.desc())
     )
     if recent_code.scalars().first():
-        raise HTTPException(status_code=429, detail="Please wait 60 seconds before requesting again")
+        raise HTTPException(status_code=429, detail="请等待60秒后再试")
     
     # 生成验证码
     code = VerificationCode.generate_code()
@@ -105,7 +105,7 @@ async def send_verification_code(
     await email_service.configure(system_config)
     
     if not email_service.is_configured():
-        raise HTTPException(status_code=500, detail="Email service not configured")
+        raise HTTPException(status_code=500, detail="邮件服务未配置")
     
     try:
         if request.type == "register":
@@ -122,12 +122,12 @@ async def send_verification_code(
             )
         
         if not success:
-            raise Exception("Failed to send email")
+            raise Exception("发送邮件失败")
             
-        return {"message": "Verification code sent", "expires_in": 300}  # 5 minutes
+        return {"message": "验证码已发送", "expires_in": 300}  # 5 minutes
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"发送邮件失败: {str(e)}")
 
 @router.post("/verify-code")
 async def verify_code(
@@ -154,13 +154,13 @@ async def verify_code(
     verification_code = result.scalars().first()
     
     if not verification_code:
-        raise HTTPException(status_code=400, detail="Invalid verification code")
+        raise HTTPException(status_code=400, detail="无效的验证码")
     
     if verification_code.is_expired():
-        raise HTTPException(status_code=400, detail="Verification code expired")
+        raise HTTPException(status_code=400, detail="验证码已过期")
     
     # 标记为已使用
     verification_code.is_used = True
     await db.commit()
     
-    return {"message": "Verification successful", "email": request.email}
+    return {"message": "验证成功", "email": request.email}
