@@ -28,6 +28,7 @@ import { confirm } from '@/components/ui/ConfirmDialog';
 import { Pagination } from '@/components/ui/pagination';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import MaskedKey from '@/components/MaskedKey';
 
 interface ExclusiveKey {
     id: number;
@@ -456,9 +457,7 @@ export default function KeysPage() {
                                                     </td>
                                                     <td className="p-4 align-middle">
                                                         <div className="flex items-center gap-2">
-                                                            <code className="relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm break-all" title={key.key}>
-                                                                {key.key}
-                                                            </code>
+                                                            <MaskedKey apiKey={key.key} />
                                                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(key.key)}>
                                                                 <Copy className="w-3 h-3" />
                                                             </Button>
@@ -734,9 +733,7 @@ export default function KeysPage() {
                                                         </td>
                                                         <td className="p-4 align-middle">
                                                             <div className="flex items-center gap-2">
-                                                                <code className="relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm break-all" title={key.key}>
-                                                                    {key.key}
-                                                                </code>
+                                                                <MaskedKey apiKey={key.key} />
                                                                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(key.key)}>
                                                                     <Copy className="w-3 h-3" />
                                                                 </Button>

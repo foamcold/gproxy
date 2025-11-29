@@ -6,9 +6,57 @@ from sqlalchemy.future import select
 from app.api import deps
 from app.models.system_config import SystemConfig as SystemConfigModel
 from app.models.user import User
+from app.models.key import OfficialKey
+from app.models.log import Log
 from app.schemas.system_config import SystemConfig, SystemConfigUpdate
+from sqlalchemy import func, desc
 
 router = APIRouter()
+
+@router.get("/stats")
+async def get_system_stats(
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+):
+    """
+    获取系统统计信息
+    """
+    # 官方密钥总请求数
+    total_requests_result = await db.execute(
+        select(func.sum(OfficialKey.usage_count))
+        .filter(OfficialKey.user_id == current_user.id)
+    )
+    total_requests = total_requests_result.scalar_one_or_none() or 0
+
+    # 官方密钥活跃数
+    active_keys_result = await db.execute(
+        select(func.count(OfficialKey.id))
+        .filter(OfficialKey.user_id == current_user.id, OfficialKey.is_active == True)
+    )
+    active_keys = active_keys_result.scalar_one_or_none() or 0
+
+    # 官方密钥总令牌数
+    total_tokens_result = await db.execute(
+        select(func.sum(OfficialKey.total_tokens))
+        .filter(OfficialKey.user_id == current_user.id)
+    )
+    total_tokens = total_tokens_result.scalar_one_or_none() or 0
+    
+    # 平均延迟（最近10条无报错）
+    avg_latency_result = await db.execute(
+        select(func.avg(Log.latency))
+        .filter(Log.user_id == current_user.id, Log.status == 'ok')
+        .order_by(desc(Log.created_at))
+        .limit(10)
+    )
+    avg_latency = avg_latency_result.scalar_one_or_none() or 0
+
+    return {
+        "total_requests": total_requests,
+        "active_keys": active_keys,
+        "total_tokens": total_tokens,
+        "avg_latency": avg_latency,
+    }
 
 @router.get("/config", response_model=SystemConfig)
 async def get_system_config(

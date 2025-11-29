@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { API_BASE_URL } from '@/utils/api';
 import { cn } from '@/lib/utils';
+import MaskedKey from '@/components/MaskedKey';
 
 interface Log {
     id: number;
@@ -17,6 +18,7 @@ interface Log {
     output_tokens: number;
     created_at: string;
     exclusive_key_key: string;
+    official_key_key: string;
 }
 
 export default function LogsPage() {
@@ -76,8 +78,8 @@ export default function LogsPage() {
                                         <td className="p-4 whitespace-nowrap">
                                             {format(toZonedTime(new Date(log.created_at), 'Asia/Shanghai'), 'yyyy-MM-dd HH:mm:ss')}
                                         </td>
-                                        <td className="p-4 font-mono text-xs max-w-[150px] truncate" title={log.exclusive_key_key}>
-                                            {log.exclusive_key_key ? log.exclusive_key_key.substring(0, 20) + '...' : '-'}
+                                        <td className="p-4 font-mono text-xs max-w-[150px] truncate" title={log.exclusive_key_key || log.official_key_key}>
+                                            {log.exclusive_key_key ? <MaskedKey apiKey={log.exclusive_key_key} /> : (log.official_key_key ? <MaskedKey apiKey={log.official_key_key} /> : '-')}
                                         </td>
                                         <td className="p-4">{log.model}</td>
                                         <td className="p-4">

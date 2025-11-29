@@ -23,6 +23,7 @@ class LogSchema(BaseModel):
     output_tokens: int
     created_at: datetime
     exclusive_key_key: Optional[str] = None
+    official_key_key: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -44,7 +45,7 @@ async def read_logs(
     # Eager load exclusive key to show the key string if needed, 
     # but Log model has exclusive_key_id. 
     # Let's join or load relationship.
-    query = query.options(selectinload(Log.exclusive_key))
+    query = query.options(selectinload(Log.exclusive_key), selectinload(Log.official_key))
     
     result = await db.execute(query.offset(skip).limit(limit))
     logs = result.scalars().all()
@@ -65,7 +66,8 @@ async def read_logs(
             "input_tokens": log.input_tokens,
             "output_tokens": log.output_tokens,
             "created_at": log.created_at,
-            "exclusive_key_key": log.exclusive_key.key if log.exclusive_key else None
+            "exclusive_key_key": log.exclusive_key.key if log.exclusive_key else None,
+            "official_key_key": log.official_key.key if log.official_key else None
         }
         results.append(LogSchema(**log_data))
         
