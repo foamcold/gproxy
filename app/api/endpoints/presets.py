@@ -31,7 +31,9 @@ async def read_presets(
     results = []
     for preset in presets:
         items = []
-        for item in preset.items:
+        # 确保按 sort_order 排序
+        sorted_items = sorted(preset.items, key=lambda x: x.sort_order)
+        for item in sorted_items:
             items.append({
                 "id": item.id,
                 "preset_id": item.preset_id,

@@ -18,5 +18,5 @@ class Preset(Base):
 
     user = relationship("User")
     regex_rules = relationship("PresetRegexRule", back_populates="preset", cascade="all, delete-orphan")
-    items = relationship("PresetItem", cascade="all, delete-orphan")
+    items = relationship("PresetItem", cascade="all, delete-orphan", order_by="PresetItem.sort_order")
 

@@ -13,8 +13,13 @@ class PresetItemBase(BaseModel):
 class PresetItemCreate(PresetItemBase):
     pass
 
-class PresetItemUpdate(PresetItemBase):
-    pass
+class PresetItemUpdate(BaseModel):
+    name: Optional[str] = None
+    role: Optional[str] = None
+    type: Optional[str] = None
+    content: Optional[str] = None
+    enabled: Optional[bool] = None
+    sort_order: Optional[int] = None
 
 class PresetItem(PresetItemBase):
     id: int

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Plus, Download, Upload } from 'lucide-react';
@@ -21,32 +21,38 @@ interface PresetItemEditorProps {
 export function PresetItemEditor({ preset, onItemsChange }: PresetItemEditorProps) {
     const [editingItem, setEditingItem] = useState<PresetItem | Partial<PresetItem> | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [items, setItems] = useState<PresetItem[]>([]);
     const { toast } = useToast();
 
     const sensors = useSensors(
         useSensor(PointerSensor),
         useSensor(KeyboardSensor)
     );
-    
-    const localItems = preset.items || [];
+
+    // 同步preset.items到本地状态
+    useEffect(() => {
+        setItems(preset.items || []);
+    }, [preset.id, preset.items]);
 
     const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
         if (over && active.id !== over.id) {
-            const oldIndex = localItems.findIndex((item) => item.id === active.id);
-            const newIndex = localItems.findIndex((item) => item.id === over.id);
-            const newItems = arrayMove(localItems, oldIndex, newIndex);
+            const oldIndex = items.findIndex((item) => item.id === active.id);
+            const newIndex = items.findIndex((item) => item.id === over.id);
+            const newItems = arrayMove(items, oldIndex, newIndex);
 
-            onItemsChange(); // Optimistic update
+            // 立即更新本地状态（真正的乐观更新，不刷新页面）
+            setItems(newItems);
 
             try {
-                // Update sort order for all affected items
+                // 后台异步更新排序
                 await Promise.all(newItems.map((item, index) =>
                     presetService.updatePresetItem(preset.id, item.id, { sort_order: index })
                 ));
             } catch (error) {
                 toast({ variant: 'error', title: '排序失败' });
-                onItemsChange(); // Revert on failure
+                // 失败时恢复原状态
+                setItems(preset.items || []);
             }
         }
     };
@@ -57,7 +63,7 @@ export function PresetItemEditor({ preset, onItemsChange }: PresetItemEditorProp
             type: 'normal',
             name: '新建条目',
             content: '',
-            sort_order: localItems.length,
+            sort_order: items.length,
             enabled: true,
         };
         setEditingItem(newItem);
@@ -102,7 +108,7 @@ export function PresetItemEditor({ preset, onItemsChange }: PresetItemEditorProp
             await presetService.createPresetItem(preset.id, {
                 ...item,
                 name: `${item.name} (副本)`,
-                sort_order: localItems.length,
+                sort_order: items.length,
             });
             onItemsChange();
             toast({ variant: 'success', title: '复制成功' });
@@ -121,7 +127,7 @@ export function PresetItemEditor({ preset, onItemsChange }: PresetItemEditorProp
     };
 
     const handleExportItems = () => {
-        const presetItems = localItems.map(item => ({
+        const presetItems = items.map((item) => ({
             name: item.name,
             creator_username: item.creator_username || 'unknown',
             created_at: format(toZonedTime(new Date(item.created_at), 'Asia/Shanghai'), 'yyyy-MM-dd HH:mm:ss'),
@@ -149,7 +155,7 @@ export function PresetItemEditor({ preset, onItemsChange }: PresetItemEditorProp
         toast({
             variant: 'success',
             title: '导出成功',
-            description: `成功导出 ${localItems.length} 个条目`,
+            description: `成功导出 ${items.length} 个条目`,
         });
     };
 
@@ -174,7 +180,7 @@ export function PresetItemEditor({ preset, onItemsChange }: PresetItemEditorProp
                     type: item.type,
                     content: item.content,
                     enabled: item.enabled,
-                    sort_order: localItems.length + itemsToImport.indexOf(item),
+                    sort_order: items.length + itemsToImport.indexOf(item),
                 });
             }
 
@@ -201,11 +207,11 @@ export function PresetItemEditor({ preset, onItemsChange }: PresetItemEditorProp
                     <div>
                         <h2 className="text-lg font-semibold">预设内部条目</h2>
                         <p className="text-sm text-muted-foreground mt-1">
-                            当前共 {localItems.length} 个条目
+                            当前共 {items.length} 个条目
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
-                        <Button onClick={handleExportItems} variant="outline" size="sm" disabled={localItems.length === 0}>
+                        <Button onClick={handleExportItems} variant="outline" size="sm" disabled={items.length === 0}>
                             <Download className="w-4 h-4 mr-2" />
                             导出
                         </Button>
@@ -223,7 +229,7 @@ export function PresetItemEditor({ preset, onItemsChange }: PresetItemEditorProp
 
             {/* 条目列表 */}
             <ScrollArea className="flex-1 p-4">
-                {localItems.length === 0 ? (
+                {items.length === 0 ? (
                     <div className="text-center text-muted-foreground py-8">
                         <p className="text-sm">暂无条目</p>
                         <p className="text-xs mt-1">点击"添加条目"创建第一条条目</p>
@@ -235,11 +241,11 @@ export function PresetItemEditor({ preset, onItemsChange }: PresetItemEditorProp
                         onDragEnd={handleDragEnd}
                     >
                         <SortableContext
-                            items={localItems.map((item) => item.id)}
+                            items={items.map((item) => item.id)}
                             strategy={verticalListSortingStrategy}
                         >
                             <div className="space-y-2">
-                                {localItems.map((item) => (
+                                {items.map((item) => (
                                     <PresetItemRow
                                         key={item.id}
                                         item={item}
