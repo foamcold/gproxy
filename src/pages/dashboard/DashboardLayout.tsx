@@ -33,13 +33,19 @@ export default function DashboardLayout() {
         { icon: Key, label: '密钥', path: '/dashboard/keys' },
         { icon: ScrollText, label: '日志', path: '/dashboard/logs' },
         { icon: Settings, label: '资料', path: '/dashboard/profile' },
-        { icon: Users, label: '用户', path: '/dashboard/users', adminOnly: true },
-        { icon: Settings, label: '系统', path: '/dashboard/system', adminOnly: true },
+        { icon: Users, label: '用户', path: '/dashboard/users', allowedRoles: ['admin', 'super_admin'] },
+        { icon: Settings, label: '系统', path: '/dashboard/system', allowedRoles: ['super_admin'] },
     ];
 
-    const filteredNavItems = navItems.filter(item =>
-        !item.adminOnly || (item.adminOnly && currentUser?.role === 'admin')
-    );
+    const filteredNavItems = navItems.filter(item => {
+        if (!item.allowedRoles) {
+            return true; // 没有权限要求的菜单项，所有人都可见
+        }
+        if (!currentUser) {
+            return false; // 用户未登录，不可见
+        }
+        return item.allowedRoles.includes(currentUser.role);
+    });
 
     if (loading) {
         return <div>加载中...</div>; // 或者一个更复杂的加载动画

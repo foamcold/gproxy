@@ -8,6 +8,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import {
     Dialog,
     DialogContent,
     DialogHeader,
@@ -16,7 +23,7 @@ import {
     DialogFooter,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/useToast';
-import { Search, UserPlus, Ban, Trash2, UserCheck } from 'lucide-react';
+import { Search, UserPlus, Ban, UserCheck, Edit } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { confirm } from '@/components/ui/ConfirmDialog';
 import { Pagination } from '@/components/ui/pagination';
@@ -41,6 +48,7 @@ export default function AdminUsersPage() {
     const [userData, setUserData] = useState<PaginatedResponse<User>>({ items: [], total: 0, page: 1, size: 10 });
     const [searchQuery, setSearchQuery] = useState('');
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [editingUser, setEditingUser] = useState<User | null>(null);
     const [formData, setFormData] = useState({ username: '', email: '', password: '', role: 'user', is_active: true });
     const { toast } = useToast();
 
@@ -65,25 +73,55 @@ export default function AdminUsersPage() {
         fetchUsers(1, 10, searchQuery);
     }, [fetchUsers, searchQuery]);
 
+    const handleOpenDialog = (user: User | null = null) => {
+        if (user) {
+            setEditingUser(user);
+            setFormData({
+                username: user.username,
+                email: user.email,
+                password: '', // 密码字段留空
+                role: user.role,
+                is_active: user.is_active,
+            });
+        } else {
+            setEditingUser(null);
+            setFormData({
+                username: '',
+                email: '',
+                password: '',
+                role: 'user',
+                is_active: true,
+            });
+        }
+        setIsDialogOpen(true);
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const token = localStorage.getItem('token');
+        const url = editingUser
+            ? `${API_BASE_URL}/users/${editingUser.id}`
+            : `${API_BASE_URL}/users/create`;
+        const method = editingUser ? 'put' : 'post';
+
+        // 准备提交的数据，密码为空则不提交
+        const dataToSubmit: any = { ...formData };
+        if (!dataToSubmit.password) {
+            delete dataToSubmit.password;
+        }
+
         try {
-            await axios.post(`${API_BASE_URL}/users/create`, formData, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            await axios({ method, url, data: dataToSubmit, headers: { Authorization: `Bearer ${token}` } });
             setIsDialogOpen(false);
-            setFormData({ username: '', email: '', password: '', role: 'user', is_active: true });
             fetchUsers(userData.page, userData.size, searchQuery);
             toast({
                 variant: 'success',
-                title: '创建成功',
+                title: editingUser ? '更新成功' : '创建成功',
             });
         } catch (error) {
             toast({
                 variant: 'error',
-                title: '创建失败',
+                title: editingUser ? '更新失败' : '创建失败',
             });
         }
     };
@@ -150,14 +188,14 @@ export default function AdminUsersPage() {
                 </div>
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                     <DialogTrigger asChild>
-                        <Button>
+                        <Button onClick={() => handleOpenDialog()}>
                             <UserPlus className="w-4 h-4 mr-2" />
                             添加用户
                         </Button>
                     </DialogTrigger>
                     <DialogContent>
                         <DialogHeader>
-                            <DialogTitle>创建新用户</DialogTitle>
+                            <DialogTitle>{editingUser ? '编辑用户' : '创建新用户'}</DialogTitle>
                         </DialogHeader>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div className="space-y-2">
@@ -186,31 +224,36 @@ export default function AdminUsersPage() {
                                     type="password"
                                     value={formData.password}
                                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                    required
+                                    placeholder={editingUser ? '留空则不修改' : ''}
+                                    required={!editingUser} // 创建时必填
                                 />
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="role">权限</Label>
-                                <select
-                                    id="role"
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                <Select
                                     value={formData.role}
-                                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                                    onValueChange={(value) => setFormData({ ...formData, role: value })}
                                 >
-                                    <option value="user">用户</option>
-                                    <option value="admin">管理员</option>
-                                </select>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="选择权限" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="user">用户</SelectItem>
+                                        <SelectItem value="admin">管理员</SelectItem>
+                                        <SelectItem value="super_admin">超级管理员</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
-                            <div className="flex items-center justify-between">
-                                <Label htmlFor="active">启用</Label>
-                                <Switch
-                                    id="active"
-                                    checked={formData.is_active}
-                                    onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-                                />
-                            </div>
-                            <DialogFooter>
-                                <Button type="submit">创建</Button>
+                            <DialogFooter className="!justify-between pt-4">
+                                <div className="flex items-center gap-2">
+                                    <Switch
+                                        id="active"
+                                        checked={formData.is_active}
+                                        onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                                    />
+                                    <Label htmlFor="active">启用</Label>
+                                </div>
+                                <Button type="submit">{editingUser ? '保存' : '创建'}</Button>
                             </DialogFooter>
                         </form>
                     </DialogContent>
@@ -260,11 +303,11 @@ export default function AdminUsersPage() {
                                     <td className="p-4">
                                         <span className={cn(
                                             "px-2 py-1 rounded text-xs font-medium",
-                                            user.role === 'admin'
-                                                ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-100"
-                                                : "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-100"
+                                            user.role === 'super_admin' ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-100" :
+                                            user.role === 'admin' ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-100" :
+                                            "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-100"
                                         )}>
-                                            {user.role === 'admin' ? '管理员' : '用户'}
+                                            {user.role === 'super_admin' ? '超级管理员' : (user.role === 'admin' ? '管理员' : '用户')}
                                         </span>
                                     </td>
                                     <td className="p-4">
@@ -293,6 +336,14 @@ export default function AdminUsersPage() {
                                                 ) : (
                                                     <UserCheck className="w-4 h-4 text-green-600" />
                                                 )}
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => handleOpenDialog(user)}
+                                                title="编辑用户"
+                                            >
+                                                <Edit className="w-4 h-4" />
                                             </Button>
                                         </div>
                                     </td>

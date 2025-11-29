@@ -23,9 +23,9 @@ function App() {
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/initialize" element={<InitializePage />} />
                 
-                {/* 普通用户和管理员都可以访问的路由 */}
-                <Route element={<PrivateRoute allowedRoles={['user', 'admin']} />}>
-                    <Route path="/dashboard" element={<DashboardLayout />}>
+                <Route path="/dashboard" element={<DashboardLayout />}>
+                    {/* 普通用户及以上 */}
+                    <Route element={<PrivateRoute allowedRoles={['user', 'admin', 'super_admin']} />}>
                         <Route index element={<DashboardHome />} />
                         <Route path="presets" element={<PresetsPage />} />
                         <Route path="regex" element={<RegexPage />} />
@@ -33,12 +33,12 @@ function App() {
                         <Route path="logs" element={<LogsPage />} />
                         <Route path="profile" element={<ProfilePage />} />
                     </Route>
-                </Route>
-
-                {/* 仅管理员可以访问的路由 */}
-                <Route element={<PrivateRoute allowedRoles={['admin']} />}>
-                    <Route path="/dashboard" element={<DashboardLayout />}>
+                    {/* 管理员及以上 */}
+                    <Route element={<PrivateRoute allowedRoles={['admin', 'super_admin']} />}>
                         <Route path="users" element={<AdminUsersPage />} />
+                    </Route>
+                    {/* 仅超级管理员 */}
+                    <Route element={<PrivateRoute allowedRoles={['super_admin']} />}>
                         <Route path="system" element={<SystemPage />} />
                     </Route>
                 </Route>

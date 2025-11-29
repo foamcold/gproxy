@@ -2,12 +2,12 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import api from '@/utils/api';
 
 // 定义用户对象接口
-interface User {
+export interface User {
     id: number;
     email: string;
     username: string;
     is_active: boolean;
-    role: 'user' | 'admin';
+    role: 'user' | 'admin' | 'super_admin';
 }
 
 // 定义Context的数据结构

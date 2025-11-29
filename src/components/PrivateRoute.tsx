@@ -2,8 +2,10 @@ import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import PermissionDeniedPage from '@/pages/PermissionDeniedPage';
 
+import { User } from '@/contexts/AuthContext'; // 假设 User 类型已导出
+
 interface PrivateRouteProps {
-    allowedRoles: ('user' | 'admin')[];
+    allowedRoles: User['role'][];
 }
 
 export default function PrivateRoute({ allowedRoles }: PrivateRouteProps) {

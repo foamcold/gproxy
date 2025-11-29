@@ -41,7 +41,7 @@ async def get_setup_status(
     """
     # 检查是否存在管理员账户
     result = await db.execute(
-        select(User).filter(User.role == "admin")
+        select(User).filter(User.role == "super_admin")
     )
     admin_user = result.scalars().first()
     
@@ -80,7 +80,7 @@ async def initialize_system(
     """
     # 1. 检查是否已存在管理员账户
     result = await db.execute(
-        select(User).filter(User.role == "admin")
+        select(User).filter(User.role == "super_admin")
     )
     admin_user = result.scalars().first()
     
@@ -136,7 +136,7 @@ async def initialize_system(
             email=f"{request.username}@example.com",  # 默认邮箱
             password_hash=security.get_password_hash(request.password),
             is_active=True,
-            role="admin"
+            role="super_admin"
         )
         db.add(admin_user)
         await db.commit()

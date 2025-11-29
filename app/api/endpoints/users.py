@@ -18,7 +18,7 @@ async def read_users(
     page: int = 1,
     size: int = 20,
     q: str = None,
-    current_user: User = Depends(deps.get_current_active_superuser),
+    current_user: User = Depends(deps.get_current_active_admin),
 ) -> Any:
     """
     Retrieve users with pagination and search.
@@ -68,7 +68,7 @@ async def create_user(
     email: str = Body(...),
     password: str = Body(...),
     username: str = Body(...),
-    current_user: User = Depends(deps.get_current_active_superuser),
+    current_user: User = Depends(deps.get_current_active_admin),
 ) -> Any:
     """
     Create new user by admin.
@@ -167,7 +167,7 @@ async def toggle_user_active(
     *,
     db: AsyncSession = Depends(deps.get_db),
     user_id: int,
-    current_user: User = Depends(deps.get_current_active_superuser),
+    current_user: User = Depends(deps.get_current_active_admin),
 ) -> Any:
     """
     Toggle user active status (enable/disable).
@@ -191,7 +191,7 @@ async def delete_user(
     *,
     db: AsyncSession = Depends(deps.get_db),
     user_id: int,
-    current_user: User = Depends(deps.get_current_active_superuser),
+    current_user: User = Depends(deps.get_current_active_admin),
 ) -> Any:
     """
     Delete (deactivate) user.
@@ -206,6 +206,39 @@ async def delete_user(
     
     # 软删除：设置为不活跃
     user.is_active = False
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+@router.put("/{user_id}", response_model=UserSchema)
+async def update_user(
+    *,
+    db: AsyncSession = Depends(deps.get_db),
+    user_id: int,
+    user_in: UserUpdate,
+    current_user: User = Depends(deps.get_current_active_admin),
+) -> Any:
+    """
+    Update a user.
+    """
+    result = await db.execute(select(User).filter(User.id == user_id))
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="The user with this username does not exist in the system.",
+        )
+    
+    # 更新字段
+    update_data = user_in.dict(exclude_unset=True)
+    if "password" in update_data and update_data["password"]:
+        user.password_hash = security.get_password_hash(update_data["password"])
+        del update_data["password"] # 从待更新字典中移除，避免直接赋值
+    
+    for field, value in update_data.items():
+        setattr(user, field, value)
+
     db.add(user)
     await db.commit()
     await db.refresh(user)

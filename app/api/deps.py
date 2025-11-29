@@ -49,9 +49,18 @@ async def get_current_active_user(
 async def get_current_active_superuser(
     current_user: User = Depends(get_current_user),
 ) -> User:
-    if current_user.role != "admin":
+    if current_user.role != "super_admin":
         raise HTTPException(
-            status_code=400, detail="用户权限不足"
+            status_code=403, detail="需要超级管理员权限"
+        )
+    return current_user
+
+async def get_current_active_admin(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    if current_user.role not in ["admin", "super_admin"]:
+        raise HTTPException(
+            status_code=403, detail="需要管理员权限"
         )
     return current_user
 
