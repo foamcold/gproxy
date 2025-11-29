@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-export default function SettingsPage() {
+export default function ProfilePage() {
     const [user, setUser] = useState<any>(null);
     const [password, setPassword] = useState('');
     const [email, setEmail] = useState('');
@@ -47,7 +47,7 @@ export default function SettingsPage() {
     return (
         <div className="max-w-2xl space-y-8">
             <div>
-                <h1 className="text-3xl font-bold tracking-tight">设置</h1>
+                <h1 className="text-3xl font-bold tracking-tight">资料</h1>
                 <p className="text-sm text-muted-foreground mt-1">
                     配置系统参数和个性化选项
                 </p>

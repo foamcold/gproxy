@@ -8,7 +8,7 @@ import PresetsPage from './pages/dashboard/PresetsPage';
 import RegexPage from './pages/dashboard/RegexPage';
 import KeysPage from './pages/dashboard/KeysPage';
 import LogsPage from './pages/dashboard/LogsPage';
-import SettingsPage from './pages/dashboard/SettingsPage';
+import ProfilePage from './pages/dashboard/ProfilePage';
 import AdminUsersPage from './pages/dashboard/AdminUsersPage';
 import SystemPage from './pages/dashboard/SystemPage';
 import { Toaster } from './components/ui/toaster';
@@ -27,7 +27,7 @@ function App() {
                     <Route path="regex" element={<RegexPage />} />
                     <Route path="keys" element={<KeysPage />} />
                     <Route path="logs" element={<LogsPage />} />
-                    <Route path="settings" element={<SettingsPage />} />
+                    <Route path="profile" element={<ProfilePage />} />
                     <Route path="users" element={<AdminUsersPage />} />
                     <Route path="system" element={<SystemPage />} />
                 </Route>
