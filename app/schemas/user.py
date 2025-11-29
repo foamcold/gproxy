@@ -58,6 +58,18 @@ class UserCreate(UserBase):
 class UserUpdate(UserBase):
     password: Optional[str] = None
 
+    @validator('password')
+    def validate_password(cls, v):
+        if v is None:
+            return v
+        if len(v) < 6:
+            raise ValueError('密码长度不能少于6位')
+        if re.match(r'^\d+$', v):
+            raise ValueError('密码不能为纯数字')
+        if not re.search(r'[a-zA-Z]', v):
+            raise ValueError('密码必须包含英文字母')
+        return v
+
 class UserInDBBase(UserBase):
     id: int
     created_at: datetime

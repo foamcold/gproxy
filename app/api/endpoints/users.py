@@ -133,23 +133,18 @@ async def update_user_me(
     *,
     db: AsyncSession = Depends(deps.get_db),
     password: str = Body(None),
-    email: str = Body(None),
+    old_password: str = Body(None),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Update own user.
     """
-    current_user_data = jsonable_encoder(current_user)
-    user_in = UserUpdate(**current_user_data)
     if password:
-        user_in.password = password
-    if email:
-        user_in.email = email
-        
-    if user_in.password:
-        current_user.password_hash = security.get_password_hash(user_in.password)
-    if user_in.email:
-        current_user.email = user_in.email
+        if not old_password:
+            raise HTTPException(status_code=400, detail="修改密码需要提供旧密码")
+        if not security.verify_password(old_password, current_user.password_hash):
+            raise HTTPException(status_code=400, detail="旧密码错误")
+        current_user.password_hash = security.get_password_hash(password)
         
     db.add(current_user)
     await db.commit()
