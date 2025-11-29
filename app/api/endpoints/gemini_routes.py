@@ -39,15 +39,12 @@ async def proxy_v1beta(
     is_exclusive = user is not None
     # 强制将 path 转为 str，以防万一
     path_str = str(path)
-    print(f"DEBUG: Path repr: {repr(path_str)}")
     
     # 显式检查生成内容的端点
     is_generate_content = "generateContent" in path_str or "streamGenerateContent" in path_str
-    print(f"DEBUG: Is generateContent: {is_generate_content}")
 
     # 如果是 gapi- key 并且是 chat completion 请求，则使用 ChatProcessor
     if is_exclusive and is_generate_content and request.method == "POST":
-        print(f"DEBUG: 检测到专属 Key 请求，转入 ChatProcessor 处理: {path_str}")
         # 获取 exclusive_key 对象
         # 修复：需要支持从 header 或 query params 中获取 key，与 deps 逻辑保持一致
         auth_header = request.headers.get("Authorization")
@@ -55,8 +52,6 @@ async def proxy_v1beta(
             client_key = auth_header.split(" ")[1]
         else:
             client_key = request.headers.get("x-goog-api-key") or request.query_params.get("key")
-        
-        print(f"DEBUG: 提取到的 Client Key: {client_key}")
         
         result = await db.execute(select(ExclusiveKey).filter(ExclusiveKey.key == client_key))
         exclusive_key = result.scalars().first()
@@ -74,9 +69,9 @@ async def proxy_v1beta(
                 end_idx = path_str.find(":", start_idx)
                 if end_idx > start_idx:
                     model_override = path_str[start_idx:end_idx]
-                    print(f"DEBUG: 解析到的模型名称: {model_override}")
-            except Exception as e:
-                print(f"DEBUG: 解析模型名称失败: {e}")
+            except Exception:
+                # 解析失败也没关系，model_override 会是 None
+                pass
 
         result = await chat_processor.process_request(
             request=request, db=db, official_key=official_key,

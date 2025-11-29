@@ -20,7 +20,6 @@ from sqlalchemy.future import select
 from fastapi import Request
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG) # 强制开启DEBUG日志
 
 class ChatProcessor:
     def __init__(self):
@@ -43,30 +42,28 @@ class ChatProcessor:
         body = await request.json()
         target_format = "gemini" # 目前上游固定为Gemini
         
-        print(f"DEBUG: 原始请求 body: {body}")
         converted_body, original_format = await universal_converter.convert_request(body, "openai")
         
         # 如果有模型覆盖，使用覆盖的模型
         if model_override:
             converted_body["model"] = model_override
             
-        print(f"DEBUG: 转换为 OpenAI 格式: {converted_body}")
         openai_request = ChatCompletionRequest(**converted_body)
 
         # 2. 加载预设和正则
         presets, regex_rules, preset_regex_rules = await self._load_context(db, exclusive_key)
-        print(f"DEBUG: 加载的预设: {presets}")
 
         # 3. 应用前置处理（正则 -> 预设 -> 变量）
         openai_request = self._apply_preprocessing(openai_request, presets, regex_rules, preset_regex_rules)
-        print(f"DEBUG: 预设处理后的 Messages: {[m.dict() for m in openai_request.messages]}")
 
         # 4. 再次转换到目标格式
         final_payload, _ = await universal_converter.convert_request(openai_request.dict(), target_format)
-        print(f"DEBUG: 最终发往上游的 Gemini Payload: {final_payload}")
         
         # 5. 发送到上游并处理响应
-        if openai_request.stream:
+        # 关键修复：对于Gemini格式的请求，流式判断应基于URL路径，而不是body内容
+        is_stream_request = "streamGenerateContent" in str(request.url)
+
+        if is_stream_request:
             return self.stream_chat_completion(
                 final_payload, target_format, original_format, openai_request.model,
                 official_key=official_key,
@@ -205,7 +202,6 @@ class ChatProcessor:
 
             buffer = ""
             async for chunk in response.aiter_text():
-                logger.debug(f"原始 Chunk: {chunk}")
                 buffer += chunk
                 # 尝试循环解析 buffer 中的所有完整 JSON 对象
                 decoder = json.JSONDecoder()
@@ -221,13 +217,11 @@ class ChatProcessor:
                         
                         # 处理解析出的 chunk
                         openai_chunk = universal_converter.gemini_to_openai_chunk(gemini_chunk, model)
-                        logger.debug(f"转换后的 OpenAI Chunk: {openai_chunk}")
 
                         if openai_chunk.get('choices') and openai_chunk['choices'][0]['delta'].get('content'):
                             content = openai_chunk['choices'][0]['delta']['content']
                             content = self._apply_postprocessing(content, global_rules, local_rules)
                             openai_chunk['choices'][0]['delta']['content'] = content
-                            logger.debug(f"后置处理后的内容: {content}")
                         
                         # 如果原始请求是 Gemini 格式，则将 OpenAI Chunk 转回 Gemini Chunk
                         if original_format == "gemini":
