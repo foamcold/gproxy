@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, func
 from datetime import datetime, timedelta, timezone
 from app.core.database import Base
 
@@ -12,11 +12,16 @@ class VerificationCode(Base):
     type = Column(String, nullable=False)  # register, reset_password
     is_used = Column(Boolean, default=False)  # 是否已使用
     expires_at = Column(DateTime(timezone=True), nullable=False)  # 过期时间
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))  # 创建时间
+    created_at = Column(DateTime(timezone=True), server_default=func.now())  # 创建时间
     
     def is_expired(self) -> bool:
         """检查是否过期"""
-        return datetime.now(timezone.utc) > self.expires_at
+        # 确保 expires_at 有时区信息
+        expires_at = self.expires_at
+        if expires_at.tzinfo is None:
+            # 如果没有时区信息，假定为 UTC
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        return datetime.now(timezone.utc) > expires_at
     
     def is_valid(self) -> bool:
         """检查是否有效（未使用且未过期）"""
@@ -30,5 +35,5 @@ class VerificationCode(Base):
     
     @staticmethod
     def get_expiration_time() -> datetime:
-        """获取过期时间（5分钟后）"""
-        return datetime.now(timezone.utc) + timedelta(minutes=5)
+        """获取过期时间（10分钟后）"""
+        return datetime.now(timezone.utc) + timedelta(minutes=10)

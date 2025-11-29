@@ -72,13 +72,44 @@ class EmailService:
             message.attach(part2)
             
             # 发送邮件
-            async with aiosmtplib.SMTP(
-                hostname=self.smtp_host,
-                port=self.smtp_port,
-                use_tls=self.smtp_use_tls
-            ) as smtp:
-                await smtp.login(self.smtp_user, self.smtp_password)
-                await smtp.send_message(message)
+            # 端口465使用直接SSL连接，端口587手动控制STARTTLS
+            if self.smtp_port == 465:
+                # 端口465：直接使用SSL/TLS连接
+                async with aiosmtplib.SMTP(
+                    hostname=self.smtp_host,
+                    port=self.smtp_port,
+                    use_tls=True
+                ) as smtp:
+                    await smtp.login(self.smtp_user, self.smtp_password)
+                    await smtp.send_message(message)
+            else:
+                # 端口587：手动控制STARTTLS流程
+                # 1. 先建立明文连接（不自动升级）
+                # 2. 手动调用starttls()
+                # 3. 然后登录
+                smtp = aiosmtplib.SMTP(
+                    hostname=self.smtp_host,
+                    port=self.smtp_port,
+                    start_tls=False  # 禁用自动STARTTLS
+                )
+                connected = False
+                try:
+                    await smtp.connect()
+                    connected = True
+                    
+                    if self.smtp_use_tls:
+                        await smtp.starttls()
+                    
+                    await smtp.login(self.smtp_user, self.smtp_password)
+                    await smtp.send_message(message)
+                except Exception as e:
+                    raise
+                finally:
+                    if connected:
+                        try:
+                            await smtp.quit()
+                        except Exception:
+                            pass
             
             return True
         except Exception as e:
@@ -131,7 +162,7 @@ class EmailService:
                     <p>您好，</p>
                     <p>您正在进行邮箱验证，您的验证码是：</p>
                     <div class="code">{code}</div>
-                    <p>验证码有效期为 <strong>5分钟</strong>，请尽快完成验证。</p>
+                    <p>验证码有效期为 <strong>10分钟</strong>，请尽快完成验证。</p>
                     <p>如果这不是您的操作，请忽略此邮件。</p>
                 </div>
                 <div class="footer">
@@ -150,7 +181,7 @@ class EmailService:
         
         您正在进行邮箱验证，您的验证码是：{code}
         
-        验证码有效期为 5分钟，请尽快完成验证。
+        验证码有效期为 10分钟，请尽快完成验证。
         
         如果这不是您的操作，请忽略此邮件。
         
@@ -211,7 +242,7 @@ class EmailService:
                     <div class="code">{code}</div>
                     <div class="warning">
                         <strong>⚠️ 安全提示</strong><br>
-                        验证码有效期为 <strong>5分钟</strong>。<br>
+                        验证码有效期为 <strong>10分钟</strong>。<br>
                         如果这不是您的操作，请立即修改密码并联系管理员。
                     </div>
                 </div>
@@ -232,7 +263,7 @@ class EmailService:
         您正在重置账户密码，您的验证码是：{code}
         
         ⚠️ 安全提示
-        验证码有效期为 5分钟。
+        验证码有效期为 10分钟。
         如果这不是您的操作，请立即修改密码并联系管理员。
         
         ---

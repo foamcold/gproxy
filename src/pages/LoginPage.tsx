@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { API_BASE_URL } from '@/utils/api';
@@ -24,37 +24,38 @@ export default function LoginPage() {
     const navigate = useNavigate();
     const { toast } = useToast();
     const auth = useAuth();
+    const emailInputRef = useRef<HTMLInputElement>(null);
 
-   const validateEmail = (email: string) => {
-       if (!email) return "邮箱不能为空";
-       
-       const parts = email.split('@');
-       if (parts.length !== 2) return "邮箱必须包含一个 @ 符号";
+    const validateEmail = (email: string) => {
+        if (!email) return "邮箱不能为空";
 
-       const localPart = parts[0];
-       const domainPart = parts[1];
+        const parts = email.split('@');
+        if (parts.length !== 2) return "邮箱必须包含一个 @ 符号";
 
-       if (!/^[a-zA-Z0-9]+$/.test(localPart)) return "@ 符号前的部分只能包含字母和数字";
+        const localPart = parts[0];
+        const domainPart = parts[1];
 
-       const domainParts = domainPart.split('.');
-       if (domainParts.length < 2) return "邮箱域名必须包含 . 符号";
-       
-       const domainName = domainParts[0];
-       const topLevelDomain = domainParts.slice(1).join('.');
+        if (!/^[a-zA-Z0-9]+$/.test(localPart)) return "@ 符号前的部分只能包含字母和数字";
 
-       if (!/^[a-zA-Z]+$/.test(domainName)) return "@ 和 . 符号之间的部分只能包含字母";
-       if (!/^[a-zA-Z.]+$/.test(topLevelDomain)) return ". 符号后的部分只能包含字母";
+        const domainParts = domainPart.split('.');
+        if (domainParts.length < 2) return "邮箱域名必须包含 . 符号";
 
-       if (systemConfig?.email_whitelist_enabled) {
-           const allowedDomains = systemConfig.email_whitelist || [];
-           if (!allowedDomains.includes(domainPart)) {
-               const allowedDomainsStr = allowedDomains.join(', ');
-               return `该邮箱后缀不允许注册。请使用以下后缀的邮箱: ${allowedDomainsStr}`;
-           }
-       }
-       
-       return ""; // 验证通过
-   };
+        const domainName = domainParts[0];
+        const topLevelDomain = domainParts.slice(1).join('.');
+
+        if (!/^[a-zA-Z]+$/.test(domainName)) return "@ 和 . 符号之间的部分只能包含字母";
+        if (!/^[a-zA-Z.]+$/.test(topLevelDomain)) return ". 符号后的部分只能包含字母";
+
+        if (systemConfig?.email_whitelist_enabled) {
+            const allowedDomains = systemConfig.email_whitelist || [];
+            if (!allowedDomains.includes(domainPart)) {
+                const allowedDomainsStr = allowedDomains.join(', ');
+                return `该邮箱后缀不允许注册。请使用以下后缀的邮箱: ${allowedDomainsStr}`;
+            }
+        }
+
+        return ""; // 验证通过
+    };
 
     // 加载系统配置
     useEffect(() => {
@@ -67,7 +68,7 @@ export default function LoginPage() {
                 // 如果无法加载配置，使用默认值
                 setSystemConfig({ enable_turnstile: false, require_email_verification: false });
             } finally {
-               setConfigLoading(false);
+                setConfigLoading(false);
             }
         };
         fetchConfig();
@@ -75,15 +76,23 @@ export default function LoginPage() {
 
     // 发送验证码
     const handleSendCode = async () => {
-        const emailError = validateEmail(email);
-        if (emailError) {
-            toast({
-                variant: 'error',
-                title: '邮箱格式错误',
-                description: emailError,
-            });
+        // 手动触发浏览器内置的验证提示
+        if (emailInputRef.current && !emailInputRef.current.checkValidity()) {
+            emailInputRef.current.reportValidity();
             return;
         }
+
+        // 立即启动倒计时（点击发送就开始）
+        setCountdown(60);
+        const timer = setInterval(() => {
+            setCountdown((prev) => {
+                if (prev <= 1) {
+                    clearInterval(timer);
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
 
         try {
             await axios.post(`${API_BASE_URL}/auth/send-code`, {
@@ -94,20 +103,8 @@ export default function LoginPage() {
             toast({
                 variant: 'success',
                 title: '验证码已发送',
-                description: '请查收邮件，验证码5分钟内有效',
+                description: '请查收邮件，验证码10分钟内有效',
             });
-
-            // 启动倒计时
-            setCountdown(60);
-            const timer = setInterval(() => {
-                setCountdown((prev) => {
-                    if (prev <= 1) {
-                        clearInterval(timer);
-                        return 0;
-                    }
-                    return prev - 1;
-                });
-            }, 1000);
         } catch (error: any) {
             toast({
                 variant: 'error',
@@ -148,7 +145,7 @@ export default function LoginPage() {
 
             const response = await axios.post(`${API_BASE_URL}/auth/login/access-token`, formData);
             const token = response.data.access_token;
-            
+
             await auth.login(token);
 
             toast({
@@ -309,138 +306,139 @@ export default function LoginPage() {
                         configLoading ? (
                             <div className="text-center text-muted-foreground">加载配置中...</div>
                         ) : (
-                        <form onSubmit={handleRegister} className="space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="register-username">用户名</Label>
-                                <div className="relative">
-                                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                    <Input
-                                        id="register-username"
-                                        type="text"
-                                        placeholder="输入用户名"
-                                        value={username}
-                                        onChange={(e) => setUsername(e.target.value)}
-                                        className="pl-10"
-                                        required
-                                        minLength={4}
-                                        pattern="^([\u4e00-\u9fa5]+|[a-zA-Z]+)$"
-                                        onInvalid={(e) => {
-                                           const target = e.target as HTMLInputElement;
-                                           if (target.value.length < 4) {
-                                               target.setCustomValidity('用户名长度不能少于4位');
-                                           } else {
-                                               target.setCustomValidity('用户名必须为纯中文或纯英文');
-                                           }
-                                       }}
-                                       onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="register-email">邮箱</Label>
-                                <div className="relative">
-                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                    <Input
-                                        id="register-email"
-                                        type="email"
-                                        placeholder="输入邮箱地址"
-                                        value={email}
-                                        onChange={(e) => {
-                                           setEmail(e.target.value);
-                                           const errorMessage = validateEmail(e.target.value);
-                                           (e.target as HTMLInputElement).setCustomValidity(errorMessage);
-                                       }}
-                                        className="pl-10"
-                                        required
-                                        onInvalid={(e) => {
-                                           const target = e.target as HTMLInputElement;
-                                           const errorMessage = validateEmail(target.value);
-                                           target.setCustomValidity(errorMessage);
-                                       }}
-                                       onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
-                                    />
-                                </div>
-                            </div>
-
-                            {systemConfig?.require_email_verification && (
+                            <form onSubmit={handleRegister} className="space-y-4">
                                 <div className="space-y-2">
-                                    <Label htmlFor="register-code">验证码</Label>
-                                    <div className="flex gap-2">
-                                        <div className="relative flex-1">
-                                            <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                            <Input
-                                                id="register-code"
-                                                type="text"
-                                                placeholder="输入6位验证码"
-                                                value={verificationCode}
-                                                onChange={(e) => setVerificationCode(e.target.value)}
-                                                className="pl-10"
-                                                maxLength={6}
-                                            />
-                                        </div>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            onClick={handleSendCode}
-                                            disabled={countdown > 0}
-                                            className="shrink-0"
-                                        >
-                                            {countdown > 0 ? `${countdown}s` : '发送'}
-                                        </Button>
+                                    <Label htmlFor="register-username">用户名</Label>
+                                    <div className="relative">
+                                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                        <Input
+                                            id="register-username"
+                                            type="text"
+                                            placeholder="输入用户名"
+                                            value={username}
+                                            onChange={(e) => setUsername(e.target.value)}
+                                            className="pl-10"
+                                            required
+                                            minLength={4}
+                                            pattern="^([\u4e00-\u9fa5]+|[a-zA-Z]+)$"
+                                            onInvalid={(e) => {
+                                                const target = e.target as HTMLInputElement;
+                                                if (target.value.length < 4) {
+                                                    target.setCustomValidity('用户名长度不能少于4位');
+                                                } else {
+                                                    target.setCustomValidity('用户名必须为纯中文或纯英文');
+                                                }
+                                            }}
+                                            onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
+                                        />
                                     </div>
                                 </div>
-                            )}
 
-                            <div className="space-y-2">
-                                <Label htmlFor="register-password">密码</Label>
-                                <div className="relative">
-                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                    <Input
-                                        id="register-password"
-                                        type="password"
-                                        placeholder="输入密码（至少6位）"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        className="pl-10"
-                                        required
-                                        minLength={6}
-                                        pattern="^(?!\d+$).{6,}$"
-                                        onInvalid={(e) => {
-                                           const target = e.target as HTMLInputElement;
-                                           if (target.value.length < 6) {
-                                               target.setCustomValidity('密码长度不能少于6位');
-                                           } else {
-                                               target.setCustomValidity('密码不能为纯数字');
-                                           }
-                                       }}
-                                       onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Turnstile 人机验证 */}
-                            {systemConfig?.enable_turnstile && systemConfig?.turnstile_site_key && (
                                 <div className="space-y-2">
-                                    <Label>人机验证</Label>
-                                    <TurnstileWidget
-                                        siteKey={systemConfig.turnstile_site_key}
-                                        onVerify={(token) => setTurnstileToken(token)}
-                                        onError={() => {
-                                            toast({
-                                                variant: 'error',
-                                                title: '验证失败',
-                                                description: '人机验证失败，请刷新重试',
-                                            });
-                                        }}
-                                    />
+                                    <Label htmlFor="register-email">邮箱</Label>
+                                    <div className="relative">
+                                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                        <Input
+                                            ref={emailInputRef}
+                                            id="register-email"
+                                            type="email"
+                                            placeholder="输入邮箱地址"
+                                            value={email}
+                                            onChange={(e) => {
+                                                setEmail(e.target.value);
+                                                const errorMessage = validateEmail(e.target.value);
+                                                (e.target as HTMLInputElement).setCustomValidity(errorMessage);
+                                            }}
+                                            className="pl-10"
+                                            required
+                                            onInvalid={(e) => {
+                                                const target = e.target as HTMLInputElement;
+                                                const errorMessage = validateEmail(target.value);
+                                                target.setCustomValidity(errorMessage);
+                                            }}
+                                            onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
+                                        />
+                                    </div>
                                 </div>
-                            )}
 
-                            <Button type="submit" className="w-full" disabled={loading}>
-                                {loading ? '注册中...' : '注册'}
-                            </Button>
-                        </form>
+                                {systemConfig?.require_email_verification && (
+                                    <div className="space-y-2">
+                                        <Label htmlFor="register-code">验证码</Label>
+                                        <div className="flex gap-2">
+                                            <div className="relative flex-1">
+                                                <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                                <Input
+                                                    id="register-code"
+                                                    type="text"
+                                                    placeholder="输入6位验证码"
+                                                    value={verificationCode}
+                                                    onChange={(e) => setVerificationCode(e.target.value)}
+                                                    className="pl-10"
+                                                    maxLength={6}
+                                                />
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={handleSendCode}
+                                                disabled={countdown > 0 || !email}
+                                                className="shrink-0"
+                                            >
+                                                {countdown > 0 ? `${countdown}s` : '发送'}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="register-password">密码</Label>
+                                    <div className="relative">
+                                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                        <Input
+                                            id="register-password"
+                                            type="password"
+                                            placeholder="输入密码（至少6位）"
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            className="pl-10"
+                                            required
+                                            minLength={6}
+                                            pattern="^(?!\d+$).{6,}$"
+                                            onInvalid={(e) => {
+                                                const target = e.target as HTMLInputElement;
+                                                if (target.value.length < 6) {
+                                                    target.setCustomValidity('密码长度不能少于6位');
+                                                } else {
+                                                    target.setCustomValidity('密码不能为纯数字');
+                                                }
+                                            }}
+                                            onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Turnstile 人机验证 */}
+                                {systemConfig?.enable_turnstile && systemConfig?.turnstile_site_key && (
+                                    <div className="space-y-2">
+                                        <Label>人机验证</Label>
+                                        <TurnstileWidget
+                                            siteKey={systemConfig.turnstile_site_key}
+                                            onVerify={(token) => setTurnstileToken(token)}
+                                            onError={() => {
+                                                toast({
+                                                    variant: 'error',
+                                                    title: '验证失败',
+                                                    description: '人机验证失败，请刷新重试',
+                                                });
+                                            }}
+                                        />
+                                    </div>
+                                )}
+
+                                <Button type="submit" className="w-full" disabled={loading}>
+                                    {loading ? '注册中...' : '注册'}
+                                </Button>
+                            </form>
                         )
                     )}
                 </div>
