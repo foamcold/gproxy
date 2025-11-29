@@ -7,8 +7,9 @@ from sqlalchemy import func
 from app.api import deps
 from app.core import security
 from app.models.user import User
-from app.schemas.user import User as UserSchema, UserUpdate
+from app.schemas.user import User as UserSchema, UserUpdate, UserCreate
 from app.schemas.common import PaginatedResponse
+from pydantic import EmailStr, ValidationError
 
 router = APIRouter()
 
@@ -65,26 +66,59 @@ async def read_users(
 async def create_user(
     *,
     db: AsyncSession = Depends(deps.get_db),
-    email: str = Body(...),
-    password: str = Body(...),
-    username: str = Body(...),
+    user_in: UserCreate,
     current_user: User = Depends(deps.get_current_active_admin),
 ) -> Any:
     """
     Create new user by admin.
     """
-    result = await db.execute(select(User).filter(User.email == email))
+    try:
+        # 验证输入
+        user_create = UserCreate(**user_in.dict())
+    except ValidationError as e:
+        # Pydantic 验证失败
+        first_error = e.errors()[0]
+        field = first_error['loc'][0]
+        msg = first_error['msg']
+        
+        # 优化错误信息
+        if field == 'username':
+            detail = f"用户名验证失败: {msg}"
+        elif field == 'password':
+            detail = f"密码验证失败: {msg}"
+        elif field == 'email':
+            detail = "邮箱格式不正确"
+        else:
+            detail = "输入验证失败"
+            
+        raise HTTPException(
+            status_code=422,
+            detail=detail,
+        )
+
+    # 检查 email 是否已存在
+    result = await db.execute(select(User).filter(User.email == user_create.email))
     user = result.scalars().first()
     if user:
         raise HTTPException(
             status_code=400,
-            detail="The user with this email already exists in the system.",
+            detail="该邮箱已被注册",
         )
+        
+    # 检查 username 是否已存在
+    result = await db.execute(select(User).filter(User.username == user_create.username))
+    user = result.scalars().first()
+    if user:
+        raise HTTPException(
+            status_code=400,
+            detail="该用户名已被使用",
+        )
+        
     
     user = User(
-        email=email,
-        username=username,
-        password_hash=security.get_password_hash(password),
+        email=user_create.email,
+        username=user_create.username,
+        password_hash=security.get_password_hash(user_create.password),
         is_active=True,
         role="user",
     )
@@ -134,26 +168,53 @@ async def read_user_me(
 async def create_user_open(
     *,
     db: AsyncSession = Depends(deps.get_db),
-    password: str = Body(...),
-    email: str = Body(...),
-    username: str = Body(...),
+    user_in: UserCreate,
 ) -> Any:
     """
     Create new user without login.
     """
     # TODO: Add registration config check (is_open_registration)
-    result = await db.execute(select(User).filter(User.email == email))
+    try:
+        user_create = UserCreate(**user_in.dict())
+    except ValidationError as e:
+        first_error = e.errors()[0]
+        field = first_error['loc'][0]
+        msg = first_error['msg']
+        
+        if field == 'username':
+            detail = f"用户名验证失败: {msg}"
+        elif field == 'password':
+            detail = f"密码验证失败: {msg}"
+        elif field == 'email':
+            detail = "邮箱格式不正确"
+        else:
+            detail = "输入验证失败"
+            
+        raise HTTPException(
+            status_code=422,
+            detail=detail,
+        )
+
+    result = await db.execute(select(User).filter(User.email == user_create.email))
     user = result.scalars().first()
     if user:
         raise HTTPException(
             status_code=400,
-            detail="The user with this email already exists in the system.",
+            detail="该邮箱已被注册",
+        )
+        
+    result = await db.execute(select(User).filter(User.username == user_create.username))
+    user = result.scalars().first()
+    if user:
+        raise HTTPException(
+            status_code=400,
+            detail="该用户名已被使用",
         )
         
     user = User(
-        email=email,
-        username=username,
-        password_hash=security.get_password_hash(password),
+        email=user_create.email,
+        username=user_create.username,
+        password_hash=security.get_password_hash(user_create.password),
         is_active=True,
         role="user",
     )
@@ -229,9 +290,25 @@ async def update_user(
             status_code=404,
             detail="The user with this username does not exist in the system.",
         )
-    
+
+    # 安全检查：防止最后一个 super_admin 降级自己
+    if current_user.id == user_id and user.role == "super_admin" and user_in.role != "super_admin":
+        # 查询是否还有其他 super_admin
+        count_query = select(func.count(User.id)).filter(User.role == "super_admin", User.id != user_id)
+        other_super_admins = await db.scalar(count_query)
+        if other_super_admins == 0:
+            raise HTTPException(
+                status_code=403,
+                detail="系统中必须至少保留一名超级管理员",
+            )
+            
     # 更新字段
     update_data = user_in.dict(exclude_unset=True)
+    
+    # 只有 super_admin 才能修改权限
+    if "role" in update_data and current_user.role != "super_admin":
+        del update_data["role"]
+        
     if "password" in update_data and update_data["password"]:
         user.password_hash = security.get_password_hash(update_data["password"])
         del update_data["password"] # 从待更新字典中移除，避免直接赋值

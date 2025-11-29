@@ -24,6 +24,29 @@ export default function LoginPage() {
     const { toast } = useToast();
     const auth = useAuth();
 
+   const validateEmail = (email: string) => {
+       if (!email) return "邮箱不能为空";
+       
+       const parts = email.split('@');
+       if (parts.length !== 2) return "邮箱必须包含一个 @ 符号";
+
+       const localPart = parts[0];
+       const domainPart = parts[1];
+
+       if (!/^[a-zA-Z0-9]+$/.test(localPart)) return "@ 符号前的部分只能包含字母和数字";
+
+       const domainParts = domainPart.split('.');
+       if (domainParts.length < 2) return "邮箱域名必须包含 . 符号";
+       
+       const domainName = domainParts[0];
+       const topLevelDomain = domainParts.slice(1).join('.');
+
+       if (!/^[a-zA-Z]+$/.test(domainName)) return "@ 和 . 符号之间的部分只能包含字母";
+       if (!/^[a-zA-Z.]+$/.test(topLevelDomain)) return ". 符号后的部分只能包含字母";
+       
+       return ""; // 验证通过
+   };
+
     // 加载系统配置
     useEffect(() => {
         const fetchConfig = async () => {
@@ -282,6 +305,17 @@ export default function LoginPage() {
                                         onChange={(e) => setUsername(e.target.value)}
                                         className="pl-10"
                                         required
+                                        minLength={4}
+                                        pattern="^([\u4e00-\u9fa5]+|[a-zA-Z]+)$"
+                                        onInvalid={(e) => {
+                                           const target = e.target as HTMLInputElement;
+                                           if (target.value.length < 4) {
+                                               target.setCustomValidity('用户名长度不能少于4位');
+                                           } else {
+                                               target.setCustomValidity('用户名必须为纯中文或纯英文');
+                                           }
+                                       }}
+                                       onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
                                     />
                                 </div>
                             </div>
@@ -295,9 +329,19 @@ export default function LoginPage() {
                                         type="email"
                                         placeholder="输入邮箱地址"
                                         value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
+                                        onChange={(e) => {
+                                           setEmail(e.target.value);
+                                           const errorMessage = validateEmail(e.target.value);
+                                           (e.target as HTMLInputElement).setCustomValidity(errorMessage);
+                                       }}
                                         className="pl-10"
                                         required
+                                        onInvalid={(e) => {
+                                           const target = e.target as HTMLInputElement;
+                                           const errorMessage = validateEmail(target.value);
+                                           target.setCustomValidity(errorMessage);
+                                       }}
+                                       onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
                                     />
                                 </div>
                             </div>
@@ -345,6 +389,16 @@ export default function LoginPage() {
                                         className="pl-10"
                                         required
                                         minLength={6}
+                                        pattern="^(?!\d+$).{6,}$"
+                                        onInvalid={(e) => {
+                                           const target = e.target as HTMLInputElement;
+                                           if (target.value.length < 6) {
+                                               target.setCustomValidity('密码长度不能少于6位');
+                                           } else {
+                                               target.setCustomValidity('密码不能为纯数字');
+                                           }
+                                       }}
+                                       onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
                                     />
                                 </div>
                             </div>

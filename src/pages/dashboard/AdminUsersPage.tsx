@@ -23,6 +23,7 @@ import {
     DialogFooter,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/useToast';
+import { useAuth } from '@/contexts/AuthContext';
 import { Search, UserPlus, Ban, UserCheck, Edit } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { confirm } from '@/components/ui/ConfirmDialog';
@@ -51,9 +52,33 @@ export default function AdminUsersPage() {
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [formData, setFormData] = useState({ username: '', email: '', password: '', role: 'user', is_active: true });
     const { toast } = useToast();
+    const { currentUser } = useAuth();
 
-    const fetchUsers = useCallback(async (page = 1, size = 10, query = '') => {
-        const token = localStorage.getItem('token');
+    const validateEmail = (email: string) => {
+        if (!email) return "邮箱不能为空";
+        
+        const parts = email.split('@');
+        if (parts.length !== 2) return "邮箱必须包含一个 @ 符号";
+
+        const localPart = parts[0];
+        const domainPart = parts[1];
+
+        if (!/^[a-zA-Z0-9]+$/.test(localPart)) return "@ 符号前的部分只能包含字母和数字";
+
+        const domainParts = domainPart.split('.');
+        if (domainParts.length < 2) return "邮箱域名必须包含 . 符号";
+        
+        const domainName = domainParts[0];
+        const topLevelDomain = domainParts.slice(1).join('.');
+
+        if (!/^[a-zA-Z]+$/.test(domainName)) return "@ 和 . 符号之间的部分只能包含字母";
+        if (!/^[a-zA-Z.]+$/.test(topLevelDomain)) return ". 符号后的部分只能包含字母";
+        
+        return ""; // 验证通过
+    };
+ 
+     const fetchUsers = useCallback(async (page = 1, size = 10, query = '') => {
+         const token = localStorage.getItem('token');
         try {
             const response = await axios.get<PaginatedResponse<User>>(`${API_BASE_URL}/users/`, {
                 headers: { Authorization: `Bearer ${token}` },
@@ -98,6 +123,7 @@ export default function AdminUsersPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
         const token = localStorage.getItem('token');
         const url = editingUser
             ? `${API_BASE_URL}/users/${editingUser.id}`
@@ -118,10 +144,11 @@ export default function AdminUsersPage() {
                 variant: 'success',
                 title: editingUser ? '更新成功' : '创建成功',
             });
-        } catch (error) {
+        } catch (error: any) {
             toast({
                 variant: 'error',
                 title: editingUser ? '更新失败' : '创建失败',
+                description: error.response?.data?.detail || '操作失败，请重试',
             });
         }
     };
@@ -205,6 +232,17 @@ export default function AdminUsersPage() {
                                     value={formData.username}
                                     onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                                     required
+                                    minLength={4}
+                                    pattern="^([\u4e00-\u9fa5]+|[a-zA-Z]+)$"
+                                    onInvalid={(e) => {
+                                       const target = e.target as HTMLInputElement;
+                                       if (target.value.length < 4) {
+                                           target.setCustomValidity('用户名长度不能少于4位');
+                                       } else {
+                                           target.setCustomValidity('用户名必须为纯中文或纯英文');
+                                       }
+                                   }}
+                                   onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
                                 />
                             </div>
                             <div className="space-y-2">
@@ -213,8 +251,18 @@ export default function AdminUsersPage() {
                                     id="email"
                                     type="email"
                                     value={formData.email}
-                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                    onChange={(e) => {
+                                       setFormData({ ...formData, email: e.target.value });
+                                       const errorMessage = validateEmail(e.target.value);
+                                       (e.target as HTMLInputElement).setCustomValidity(errorMessage);
+                                   }}
                                     required
+                                    onInvalid={(e) => {
+                                       const target = e.target as HTMLInputElement;
+                                       const errorMessage = validateEmail(target.value);
+                                       target.setCustomValidity(errorMessage);
+                                   }}
+                                   onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
                                 />
                             </div>
                             <div className="space-y-2">
@@ -226,6 +274,17 @@ export default function AdminUsersPage() {
                                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                                     placeholder={editingUser ? '留空则不修改' : ''}
                                     required={!editingUser} // 创建时必填
+                                    minLength={6}
+                                    pattern="^(?!\d+$).{6,}$"
+                                    onInvalid={(e) => {
+                                       const target = e.target as HTMLInputElement;
+                                       if (target.value.length < 6) {
+                                           target.setCustomValidity('密码长度不能少于6位');
+                                       } else {
+                                           target.setCustomValidity('密码不能为纯数字');
+                                       }
+                                   }}
+                                   onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
                                 />
                             </div>
                             <div className="space-y-2">
@@ -233,6 +292,7 @@ export default function AdminUsersPage() {
                                 <Select
                                     value={formData.role}
                                     onValueChange={(value) => setFormData({ ...formData, role: value })}
+                                    disabled={currentUser?.role !== 'super_admin'}
                                 >
                                     <SelectTrigger>
                                         <SelectValue placeholder="选择权限" />
