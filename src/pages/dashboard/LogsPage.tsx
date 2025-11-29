@@ -45,7 +45,7 @@ export default function LogsPage() {
     return (
         <div className="space-y-6">
             <div>
-                <h1 className="text-3xl font-bold tracking-tight">请求日志</h1>
+                <h1 className="text-3xl font-bold tracking-tight">日志</h1>
                 <p className="text-sm text-muted-foreground mt-1">
                     查看系统请求记录和错误日志
                 </p>

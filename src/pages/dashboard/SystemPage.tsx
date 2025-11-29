@@ -96,7 +96,7 @@ export default function SystemPage() {
         <div className="space-y-6 max-w-4xl">
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">系统设置</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">系统</h1>
                     <p className="text-sm text-muted-foreground mt-1">
                         监控系统资源使用情况和环境变量
                     </p>

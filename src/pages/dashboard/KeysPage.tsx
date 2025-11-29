@@ -379,7 +379,7 @@ export default function KeysPage() {
     return (
         <div className="space-y-6">
             <div className="flex flex-col gap-2">
-                <h1 className="text-3xl font-bold tracking-tight">密钥管理</h1>
+                <h1 className="text-3xl font-bold tracking-tight">密钥</h1>
                 <p className="text-muted-foreground">
                     管理您的专属密钥和官方 Gemini API 密钥
                 </p>

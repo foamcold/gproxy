@@ -161,7 +161,7 @@ export default function AdminUsersPage() {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">用户管理</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">用户</h1>
                     <p className="text-sm text-muted-foreground mt-1">
                         管理系统用户权限和账号状态
                     </p>
