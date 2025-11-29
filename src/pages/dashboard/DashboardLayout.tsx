@@ -13,14 +13,16 @@ import {
     X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function DashboardLayout() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const location = useLocation();
     const navigate = useNavigate();
+    const { currentUser, loading, logout } = useAuth();
 
     const handleLogout = () => {
-        localStorage.removeItem('token');
+        logout();
         navigate('/login');
     };
 
@@ -34,6 +36,14 @@ export default function DashboardLayout() {
         { icon: Users, label: '用户', path: '/dashboard/users', adminOnly: true },
         { icon: Settings, label: '系统', path: '/dashboard/system', adminOnly: true },
     ];
+
+    const filteredNavItems = navItems.filter(item =>
+        !item.adminOnly || (item.adminOnly && currentUser?.role === 'admin')
+    );
+
+    if (loading) {
+        return <div>加载中...</div>; // 或者一个更复杂的加载动画
+    }
 
     return (
         <div className="flex h-full bg-background overflow-hidden">
@@ -50,7 +60,7 @@ export default function DashboardLayout() {
                     </div>
 
                     <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-                        {navItems.map((item) => (
+                        {filteredNavItems.map((item) => (
                             <Link
                                 key={item.path}
                                 to={item.path}

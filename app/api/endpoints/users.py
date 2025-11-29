@@ -23,7 +23,7 @@ async def read_users(
     users = result.scalars().all()
     return users
 
-@router.post("/", response_model=UserSchema)
+@router.post("/create", response_model=UserSchema)
 async def create_user(
     *,
     db: AsyncSession = Depends(deps.get_db),

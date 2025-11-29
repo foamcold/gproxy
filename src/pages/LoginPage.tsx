@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/useToast';
 import TurnstileWidget from '@/components/TurnstileWidget';
 import { Mail, Lock, User, Key } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function LoginPage() {
     const [isLogin, setIsLogin] = useState(true);
@@ -21,6 +22,7 @@ export default function LoginPage() {
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
     const { toast } = useToast();
+    const auth = useAuth();
 
     // 加载系统配置
     useEffect(() => {
@@ -108,7 +110,9 @@ export default function LoginPage() {
             formData.append('password', password);
 
             const response = await axios.post(`${API_BASE_URL}/auth/login/access-token`, formData);
-            localStorage.setItem('token', response.data.access_token);
+            const token = response.data.access_token;
+            
+            await auth.login(token);
 
             toast({
                 variant: 'success',

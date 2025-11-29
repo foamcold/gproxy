@@ -13,6 +13,7 @@ import AdminUsersPage from './pages/dashboard/AdminUsersPage';
 import SystemPage from './pages/dashboard/SystemPage';
 import { Toaster } from './components/ui/toaster';
 import { ConfirmDialog } from './components/ui/ConfirmDialog';
+import PrivateRoute from './components/PrivateRoute';
 
 function App() {
     return (
@@ -21,16 +22,27 @@ function App() {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/initialize" element={<InitializePage />} />
-                <Route path="/dashboard" element={<DashboardLayout />}>
-                    <Route index element={<DashboardHome />} />
-                    <Route path="presets" element={<PresetsPage />} />
-                    <Route path="regex" element={<RegexPage />} />
-                    <Route path="keys" element={<KeysPage />} />
-                    <Route path="logs" element={<LogsPage />} />
-                    <Route path="profile" element={<ProfilePage />} />
-                    <Route path="users" element={<AdminUsersPage />} />
-                    <Route path="system" element={<SystemPage />} />
+                
+                {/* 普通用户和管理员都可以访问的路由 */}
+                <Route element={<PrivateRoute allowedRoles={['user', 'admin']} />}>
+                    <Route path="/dashboard" element={<DashboardLayout />}>
+                        <Route index element={<DashboardHome />} />
+                        <Route path="presets" element={<PresetsPage />} />
+                        <Route path="regex" element={<RegexPage />} />
+                        <Route path="keys" element={<KeysPage />} />
+                        <Route path="logs" element={<LogsPage />} />
+                        <Route path="profile" element={<ProfilePage />} />
+                    </Route>
                 </Route>
+
+                {/* 仅管理员可以访问的路由 */}
+                <Route element={<PrivateRoute allowedRoles={['admin']} />}>
+                    <Route path="/dashboard" element={<DashboardLayout />}>
+                        <Route path="users" element={<AdminUsersPage />} />
+                        <Route path="system" element={<SystemPage />} />
+                    </Route>
+                </Route>
+
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
             <Toaster />

@@ -61,7 +61,7 @@ async def get_system_stats(
 @router.get("/config", response_model=SystemConfig)
 async def get_system_config(
     db: AsyncSession = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user),
+    current_user: User = Depends(deps.get_current_active_superuser),
 ) -> Any:
     """
     获取系统配置（所有用户可见，但敏感信息仅管理员可见）

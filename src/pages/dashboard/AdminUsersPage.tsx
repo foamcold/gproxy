@@ -88,7 +88,7 @@ export default function AdminUsersPage() {
         e.preventDefault();
         const token = localStorage.getItem('token');
         try {
-            await axios.post(`${API_BASE_URL}/users/`, formData, {
+            await axios.post(`${API_BASE_URL}/users/create`, formData, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setIsDialogOpen(false);
