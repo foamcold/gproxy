@@ -8,6 +8,7 @@ from app.api import deps
 from app.core import security
 from app.models.user import User
 from app.schemas.user import User as UserSchema, UserUpdate, UserCreate
+from app.models.system_config import SystemConfig
 from app.schemas.common import PaginatedResponse
 from pydantic import EmailStr, ValidationError
 
@@ -173,6 +174,19 @@ async def create_user_open(
     """
     Create new user without login.
     """
+    # 检查系统设置
+    system_config_result = await db.execute(select(SystemConfig))
+    system_config = system_config_result.scalars().first()
+
+    # 邮箱白名单验证
+    if system_config and system_config.email_whitelist_enabled:
+        domain = user_in.email.split('@')[-1]
+        if domain not in system_config.email_whitelist:
+            raise HTTPException(
+                status_code=400,
+                detail=f"该邮箱后缀 ({domain}) 不允许注册",
+            )
+            
     # TODO: Add registration config check (is_open_registration)
     try:
         user_create = UserCreate(**user_in.dict())

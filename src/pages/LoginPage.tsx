@@ -43,6 +43,12 @@ export default function LoginPage() {
 
        if (!/^[a-zA-Z]+$/.test(domainName)) return "@ 和 . 符号之间的部分只能包含字母";
        if (!/^[a-zA-Z.]+$/.test(topLevelDomain)) return ". 符号后的部分只能包含字母";
+
+       if (systemConfig?.email_whitelist_enabled) {
+           if (!systemConfig.email_whitelist.includes(domainPart)) {
+               return `该邮箱后缀 (${domainPart}) 不允许注册`;
+           }
+       }
        
        return ""; // 验证通过
    };
