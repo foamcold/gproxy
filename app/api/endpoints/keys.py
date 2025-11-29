@@ -31,17 +31,13 @@ async def read_official_keys(
     query = select(OfficialKey).filter(OfficialKey.user_id == current_user.id)
     
     if status == "normal":
-        # Normal: Active AND (last_status is active OR 200 OR None)
-        query = query.filter(
-            OfficialKey.is_active == True,
-            (OfficialKey.last_status == "active") | (OfficialKey.last_status == "200") | (OfficialKey.last_status == None)
-        )
+        query = query.filter(OfficialKey.is_active == True, (OfficialKey.last_status == "active") | (OfficialKey.last_status == "200"))
     elif status == "abnormal":
-        # Abnormal: Inactive OR (last_status is NOT active AND NOT 200)
-        query = query.filter(
-            (OfficialKey.is_active == False) | 
-            ((OfficialKey.last_status != "active") & (OfficialKey.last_status != "200"))
-        )
+        query = query.filter(OfficialKey.is_active == True, (OfficialKey.last_status != "active") & (OfficialKey.last_status != "200"))
+    elif status == "manually_disabled":
+        query = query.filter(OfficialKey.is_active == False, OfficialKey.last_status != "auto_disabled")
+    elif status == "auto_disabled":
+        query = query.filter(OfficialKey.is_active == False, OfficialKey.last_status == "auto_disabled")
 
     # Get total count
     count_query = select(func.count()).select_from(query.subquery())
@@ -50,9 +46,12 @@ async def read_official_keys(
     result = await db.execute(query.offset(skip).limit(size))
     keys = result.scalars().all()
     
+    # Manually convert to schema to include last_status_code
+    key_schemas = [OfficialKeySchema.from_orm(key) for key in keys]
+    
     return PaginatedResponse(
         total=total,
-        items=keys,
+        items=key_schemas,
         page=page,
         size=size
     )

@@ -52,14 +52,7 @@ async def list_models_gemini(
         response = await gemini_service.client.send(req, stream=True)
 
         # 异步更新密钥状态
-        status_code = str(response.status_code)
-        # 注意：这里需要创建一个新的 session 或者使用其他方式，因为 background_tasks 在 response 发送后执行，那时的 db session 可能已经关闭
-        # 简单起见，这里直接调用，但更好的方式是在 service 中处理 session 生命周期，或者在依赖注入中处理
-        # 鉴于 fastAPI 的 background tasks 机制，我们可以传递 db session，但要注意并发问题
-        # 这里为了确保正确性，我们直接在 service 方法中处理更新，并 await 它 (虽然会增加一点延迟)
-        # 或者使用 BackgroundTasks，但需要确保 db session 有效。
-        # 这里的 key_info[0] 就是 official_key string
-        await gemini_service.update_key_status(db, official_key, status_code)
+        await gemini_service.update_key_status(db, official_key, response.status_code)
 
         # 检查上游API的响应状态码
         if response.status_code >= 400:
@@ -123,8 +116,7 @@ async def proxy_v1beta(
         response = await gemini_service.client.send(req, stream=True)
 
         # 异步更新密钥状态
-        status_code = str(response.status_code)
-        await gemini_service.update_key_status(db, official_key, status_code)
+        await gemini_service.update_key_status(db, official_key, response.status_code)
 
         # 检查上游API的响应状态码
         if response.status_code >= 400:

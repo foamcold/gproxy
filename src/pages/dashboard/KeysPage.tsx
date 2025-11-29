@@ -47,6 +47,7 @@ interface OfficialKey {
     error_count: number;
     total_tokens: number;
     last_status: string;
+    last_status_code: number | null;
     created_at: string;
 }
 
@@ -619,6 +620,8 @@ export default function KeysPage() {
                                     <SelectItem value="all">全部</SelectItem>
                                     <SelectItem value="normal">正常</SelectItem>
                                     <SelectItem value="abnormal">异常</SelectItem>
+                                    <SelectItem value="manually_disabled">手动禁用</SelectItem>
+                                    <SelectItem value="auto_disabled">自动禁用</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -681,6 +684,7 @@ export default function KeysPage() {
                                             </th>
                                             <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">密钥</th>
                                             <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">状态</th>
+                                            <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">状态码</th>
                                             <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">请求/错误</th>
                                             <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Tokens</th>
                                             <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">创建时间</th>
@@ -690,7 +694,7 @@ export default function KeysPage() {
                                     <tbody className="[&_tr:last-child]:border-0">
                                         {officialData.items.length === 0 ? (
                                             <tr>
-                                                <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                                                <td colSpan={8} className="p-8 text-center text-muted-foreground">
                                                     <div className="flex flex-col items-center justify-center gap-2">
                                                         <AlertCircle className="h-8 w-8 opacity-50" />
                                                         <p>暂无官方密钥</p>
@@ -702,15 +706,22 @@ export default function KeysPage() {
                                                 let healthColor = 'text-green-600';
                                                 let healthLabel = '正常';
 
-                                                if (!key.is_active) {
-                                                    healthColor = 'text-gray-500';
-                                                    healthLabel = '已禁用';
-                                                } else if (key.last_status === '200' || key.last_status === 'active') {
-                                                    healthColor = 'text-green-600';
-                                                    healthLabel = '正常';
-                                                } else if (key.last_status) {
-                                                    healthColor = 'text-red-600';
-                                                    healthLabel = key.last_status;
+                                                if (key.is_active) {
+                                                    if (key.last_status === '200' || key.last_status === 'active') {
+                                                        healthColor = 'text-green-600';
+                                                        healthLabel = '正常';
+                                                    } else {
+                                                        healthColor = 'text-red-600';
+                                                        healthLabel = '异常';
+                                                    }
+                                                } else {
+                                                    if (key.last_status === 'auto_disabled') {
+                                                        healthColor = 'text-yellow-600';
+                                                        healthLabel = '自动禁用';
+                                                    } else {
+                                                        healthColor = 'text-gray-500';
+                                                        healthLabel = '手动禁用';
+                                                    }
                                                 }
 
                                                 return (
@@ -736,6 +747,9 @@ export default function KeysPage() {
                                                                 <Activity className={cn("w-4 h-4", healthColor)} />
                                                                 <span className="text-sm">{healthLabel}</span>
                                                             </div>
+                                                        </td>
+                                                        <td className="p-4 align-middle text-center">
+                                                            <span className="text-sm">{key.last_status_code || '-'}</span>
                                                         </td>
                                                         <td className="p-4 align-middle">
                                                             <div className="flex items-center justify-center gap-1 text-sm">

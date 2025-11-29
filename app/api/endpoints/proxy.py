@@ -446,7 +446,7 @@ async def chat_completions(
                 await gemini_service.update_key_status(
                     db, 
                     official_key, 
-                    str(response.status_code),
+                    response.status_code,
                     input_tokens=log_entry.input_tokens,
                     output_tokens=log_entry.output_tokens
                 )
@@ -471,7 +471,7 @@ async def chat_completions(
                 await gemini_service.update_key_status(
                     db, 
                     official_key, 
-                    str(response.status_code),
+                    response.status_code,
                     input_tokens=log_entry.input_tokens
                 )
                 return JSONResponse(content=openai_error, status_code=response.status_code)
@@ -485,7 +485,7 @@ async def chat_completions(
             await gemini_service.update_key_status(
                 db, 
                 official_key, 
-                "500",
+                500,
                 input_tokens=log_entry.input_tokens
             )
             raise HTTPException(status_code=500, detail=str(e))
@@ -510,7 +510,7 @@ async def chat_completions(
                 await gemini_service.update_key_status(
                     db, 
                     official_key, 
-                    str(response.status_code),
+                    response.status_code,
                     input_tokens=log_entry.input_tokens
                 )
                 return JSONResponse(content=openai_error, status_code=response.status_code)
@@ -550,7 +550,7 @@ async def chat_completions(
             await gemini_service.update_key_status(
                 db, 
                 official_key, 
-                str(response.status_code),
+                response.status_code,
                 input_tokens=log_entry.input_tokens,
                 output_tokens=log_entry.output_tokens
             )
@@ -563,7 +563,7 @@ async def chat_completions(
              await gemini_service.update_key_status(
                  db, 
                  official_key, 
-                 "500",
+                 500,
                  input_tokens=log_entry.input_tokens
              )
              raise HTTPException(status_code=500, detail=str(e))

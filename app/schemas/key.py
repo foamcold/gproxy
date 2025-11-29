@@ -21,6 +21,7 @@ class OfficialKey(OfficialKeyBase):
     error_count: int
     total_tokens: int
     last_status: str
+    last_status_code: Optional[int] = None
     created_at: datetime
 
     class Config:

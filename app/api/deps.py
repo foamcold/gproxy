@@ -88,8 +88,7 @@ async def get_official_key_from_proxy(
         user_result = await db.execute(select(User).filter(User.id == exclusive_key.user_id))
         user = user_result.scalars().first()
         
-        # 此处假设 gemini_service 能够处理没有可用密钥的情况
-        official_key = await gemini_service.get_active_key(db)
+        official_key = await gemini_service.get_active_key_str(db)
         return official_key, user
     else:
         # 是普通密钥，直接透传, 没有关联用户

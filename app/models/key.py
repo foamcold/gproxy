@@ -13,6 +13,7 @@ class OfficialKey(Base):
     error_count = Column(Integer, default=0)
     total_tokens = Column(BigInteger, default=0)
     last_status = Column(String, default="active") # "active", "429", "401", etc.
+    last_status_code = Column(Integer, nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
