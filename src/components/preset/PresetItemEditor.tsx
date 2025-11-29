@@ -49,6 +49,8 @@ export function PresetItemEditor({ preset, onItemsChange }: PresetItemEditorProp
                 await Promise.all(newItems.map((item, index) =>
                     presetService.updatePresetItem(preset.id, item.id, { sort_order: index })
                 ));
+                // 同步 content
+                await updatePresetContent(newItems);
             } catch (error) {
                 toast({ variant: 'error', title: '排序失败' });
                 // 失败时恢复原状态
@@ -75,19 +77,55 @@ export function PresetItemEditor({ preset, onItemsChange }: PresetItemEditorProp
         setIsDialogOpen(true);
     };
 
+    const updatePresetContent = async (updatedItems: PresetItem[]) => {
+        try {
+            const contentPayload = {
+                preset: updatedItems.map((p: PresetItem) => ({
+                    name: p.name,
+                    creator_username: p.creator_username,
+                    created_at: p.created_at,
+                    updated_at: p.updated_at,
+                    enabled: p.enabled,
+                    role: p.role,
+                    type: p.type,
+                    content: p.content,
+                })),
+                regex: [], // Keep regex untouched for now
+            };
+
+            await presetService.updatePreset(preset.id, {
+                name: preset.name,
+                is_active: preset.is_active,
+                sort_order: preset.sort_order,
+                content: contentPayload as any,
+            });
+            // 同步是静默的，不需要提示，除非出错
+        } catch (error) {
+            toast({ variant: 'error', title: '预设内容同步失败' });
+        }
+    };
+
     const handleSaveItem = async (item: PresetItem | Partial<PresetItem>) => {
         try {
+            let newOrUpdatedItem: PresetItem;
             if ('id' in item && item.id) {
                 // Update
-                await presetService.updatePresetItem(preset.id, item.id, item);
+                newOrUpdatedItem = await presetService.updatePresetItem(preset.id, item.id, item);
+                const updatedItems = items.map(i => i.id === newOrUpdatedItem.id ? newOrUpdatedItem : i);
+                setItems(updatedItems);
+                await updatePresetContent(updatedItems);
             } else {
                 // Create
-                await presetService.createPresetItem(preset.id, item as any);
+                newOrUpdatedItem = await presetService.createPresetItem(preset.id, item as any);
+                const updatedItems = [...items, newOrUpdatedItem];
+                setItems(updatedItems);
+                await updatePresetContent(updatedItems);
             }
-            onItemsChange();
+            
             setIsDialogOpen(false);
             setEditingItem(null);
             toast({ variant: 'success', title: '保存成功' });
+            // onItemsChange(); // No longer needed if we optimistically update
         } catch (error) {
             toast({ variant: 'error', title: '保存失败' });
         }
@@ -96,21 +134,26 @@ export function PresetItemEditor({ preset, onItemsChange }: PresetItemEditorProp
     const handleDeleteItem = async (itemId: number) => {
         try {
             await presetService.deletePresetItem(preset.id, itemId);
-            onItemsChange();
+            const updatedItems = items.filter(i => i.id !== itemId);
+            setItems(updatedItems); // Optimistic update locally
+            await updatePresetContent(updatedItems);
             toast({ variant: 'success', title: '删除成功' });
         } catch (error) {
             toast({ variant: 'error', title: '删除失败' });
+            onItemsChange(); // Revert on failure
         }
     };
 
     const handleDuplicateItem = async (item: PresetItem) => {
         try {
-            await presetService.createPresetItem(preset.id, {
+            const newItem = await presetService.createPresetItem(preset.id, {
                 ...item,
                 name: `${item.name} (副本)`,
                 sort_order: items.length,
             });
-            onItemsChange();
+            const updatedItems = [...items, newItem];
+            setItems(updatedItems);
+            await updatePresetContent(updatedItems);
             toast({ variant: 'success', title: '复制成功' });
         } catch (error) {
             toast({ variant: 'error', title: '复制失败' });
@@ -120,9 +163,12 @@ export function PresetItemEditor({ preset, onItemsChange }: PresetItemEditorProp
     const handleToggleEnabled = async (item: PresetItem, enabled: boolean) => {
         try {
             await presetService.updatePresetItem(preset.id, item.id, { enabled });
-            onItemsChange();
+            const updatedItems = items.map(i => i.id === item.id ? { ...i, enabled } : i);
+            setItems(updatedItems);
+            await updatePresetContent(updatedItems);
         } catch (error) {
             toast({ variant: 'error', title: '更新失败' });
+            onItemsChange(); // Revert on failure
         }
     };
 

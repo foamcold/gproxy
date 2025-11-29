@@ -1,3 +1,5 @@
+import json
+import logging
 from typing import Any, List
 from datetime import timezone
 from fastapi import APIRouter, Depends, HTTPException
@@ -12,6 +14,7 @@ from app.schemas.preset import Preset as PresetSchema, PresetCreate, PresetUpdat
 from app.schemas.preset_item import PresetItem as PresetItemSchema, PresetItemCreate, PresetItemUpdate
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 @router.get("/", response_model=List[PresetSchema])
 async def read_presets(
@@ -72,13 +75,17 @@ async def create_preset(
     """
     Create new preset.
     """
+    # 确保 content 是 JSON 字符串
+    content = preset_in.content
+    if content is not None and not isinstance(content, str):
+        content = json.dumps(content, ensure_ascii=False)
     preset = Preset(
         name=preset_in.name,
         user_id=current_user.id,
         is_active=preset_in.is_active,
         sort_order=preset_in.sort_order,
         creator_username=current_user.username,  # 自动设置创建者用户名
-        content=preset_in.content,
+        content=content,
     )
     db.add(preset)
     await db.commit()
@@ -117,6 +124,9 @@ async def update_preset(
     preset_data = preset_in.dict(exclude_unset=True)
     for key, value in preset_data.items():
         if value is not None:
+            # 确保 content 是 JSON 字符串
+            if key == 'content' and not isinstance(value, str):
+                value = json.dumps(value, ensure_ascii=False)
             setattr(preset, key, value)
     
     db.add(preset)

@@ -96,19 +96,46 @@ export default function PresetsPage() {
     // 创建新预设
     const handleCreatePreset = async () => {
         try {
+            const defaultContent = {
+                preset: [
+                    {
+                        name: '默认条目',
+                        role: 'system',
+                        type: 'normal',
+                        content: '你是一个得力助手。',
+                        enabled: true,
+                    },
+                ],
+                regex: [],
+            };
+
             const newPresetData = await presetService.createPreset({
                 name: '新建预设',
                 is_active: true,
                 sort_order: presets.length,
-                content: '',
+                content: JSON.stringify(defaultContent),
             });
-            const newPreset = { ...newPresetData, items: [] };
-            setPresets([...presets, newPreset]);
-            setSelectedPreset(newPreset);
+
+            // The backend now returns the full preset with items if they are created from content
+            // We need to parse the content string back to an object for the frontend state
+            let items = [];
+            if (newPresetData.content && typeof newPresetData.content === 'string') {
+                try {
+                    const parsedContent = JSON.parse(newPresetData.content);
+                    items = parsedContent.preset || [];
+                } catch (e) {
+                    console.error("Failed to parse content from newly created preset", e);
+                }
+            }
+            
+            // The API should ideally return the created items directly.
+            // For now, let's just refetch to get the complete data.
+            await fetchPresets(newPresetData.id);
+
             toast({
                 variant: 'success',
                 title: '创建成功',
-                description: '新预设已创建',
+                description: '新预设已创建并包含默认条目',
             });
         } catch (error) {
             toast({

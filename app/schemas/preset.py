@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Any, Union
 from pydantic import BaseModel
 from datetime import datetime
 from .preset_item import PresetItem
@@ -7,7 +7,7 @@ class PresetBase(BaseModel):
     name: str
     is_active: Optional[bool] = True
     sort_order: Optional[int] = 0
-    content: Optional[str] = None
+    content: Optional[Union[str, dict, list]] = None
 
 class PresetCreate(PresetBase):
     pass
@@ -22,7 +22,7 @@ class Preset(PresetBase):
     created_at: datetime
     updated_at: datetime
     items: List[PresetItem] = []
-    content: Optional[str] = None
+    content: Optional[Union[str, dict, list]] = None
 
     class Config:
         from_attributes = True

@@ -2,7 +2,7 @@ import json
 import time
 import httpx
 import logging
-from typing import Any
+from typing import Any, List
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse, JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -206,7 +206,7 @@ async def chat_completions(
         raise HTTPException(status_code=400, detail=f"Invalid request: {e}")
 
     # 3. Load User Context (Presets, Regex) if user exists
-    presets = []
+    presets: List[dict] = [] # Use list of dicts to store extracted data
     regex_rules = []
     preset_regex_rules = []
     
@@ -214,14 +214,24 @@ async def chat_completions(
         # Load Linked Preset
         if exclusive_key.preset_id:
             result = await db.execute(select(Preset).filter(Preset.id == exclusive_key.preset_id))
-            preset = result.scalars().first()
-            if preset:
-                presets.append(preset)
+            preset_orm = result.scalars().first()
+            
+            if preset_orm:
+                # 立即刷新以获取最新状态
+                await db.refresh(preset_orm)
+                
+                # 数据提取（Data Extraction）：将关键数据复制到普通字典，切断 ORM 关联
+                preset_data = {
+                    "id": preset_orm.id,
+                    "name": preset_orm.name,
+                    "content": preset_orm.content
+                }
+                presets.append(preset_data)
+                
                 # Load Linked Preset Regex Rules (Local Regex)
-                # Ensure they are loaded if preset exists
-                result = await db.execute(select(PresetRegexRule).filter(PresetRegexRule.preset_id == preset.id, PresetRegexRule.is_active == True))
+                result = await db.execute(select(PresetRegexRule).filter(PresetRegexRule.preset_id == preset_orm.id, PresetRegexRule.is_active == True))
                 preset_regex_rules = result.scalars().all()
-                debug_log(f"已加载 {len(preset_regex_rules)} 条局部正则规则 (预设: {preset.name})")
+                debug_log(f"已加载 {len(preset_regex_rules)} 条局部正则规则 (预设: {preset_data['name']})")
         
         # Load Linked Regex Rule (Global Regex)
         if exclusive_key.enable_regex:
@@ -253,13 +263,27 @@ async def chat_completions(
     # 5. Apply Presets (Inject into messages)
     if presets and openai_request.messages:
         for preset in presets:
-            debug_log(f"开始处理预设: {preset.name}")
+            debug_log(f"开始处理预设: {preset['name']}")
             try:
-                preset_content = json.loads(preset.content)
-                items = preset_content.get('items', [])
+                # 使用提取出的字典数据，无需再访问 ORM 属性
+                content_str = preset.get('content')
+                
+                if not content_str:
+                    debug_log(f"预设 {preset['name']} 内容为空")
+                    continue
+
+                if isinstance(content_str, dict):
+                     preset_content = content_str
+                else:
+                     preset_content = json.loads(content_str)
+
+                # 兼容两种数据结构: 'preset' (新版) 和 'items' (旧版)
+                items = preset_content.get('preset')
+                if not items:
+                    items = preset_content.get('items', [])
                 
                 if not items:
-                    debug_log(f"预设 {preset.name} 内容为空")
+                    debug_log(f"预设 {preset['name']} 内容为空或格式不匹配")
                     continue
                 
                 # 排序条目
