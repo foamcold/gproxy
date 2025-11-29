@@ -126,7 +126,7 @@ async def proxy_beta_requests(
     body = await request.body()
 
     try:
-        client = httpx.AsyncClient(timeout=60.0)
+        client = httpx.AsyncClient(timeout=120.0)
         
         req = client.build_request(
             method=request.method,
@@ -147,11 +147,22 @@ async def proxy_beta_requests(
         excluded_headers = {"content-encoding", "content-length", "transfer-encoding", "connection"}
         response_headers = {k: v for k, v in response.headers.items() if k.lower() not in excluded_headers}
 
+        async def safe_stream_generator(response):
+            try:
+                async for chunk in response.aiter_bytes():
+                    yield chunk
+            except (httpx.ReadError, httpx.ConnectError) as e:
+                logger.error(f"Proxy stream connection error: {e}")
+            except Exception as e:
+                logger.error(f"Unexpected proxy stream error: {e}")
+            finally:
+                await response.aclose()
+
         return StreamingResponse(
-            response.aiter_bytes(),
+            safe_stream_generator(response),
             status_code=response.status_code,
             headers=response_headers,
-            background=response.aclose  # 确保在流结束后关闭响应
+            background=None # background task is handled in finally block
         )
 
     except httpx.RequestError as e:
@@ -367,6 +378,7 @@ async def chat_completions(
     await db.refresh(log_entry)
 
     async def response_generator(response):
+        debug_log("Entering response_generator")
         nonlocal ttft
         first_token_received = False
         full_response_text = ""
@@ -459,6 +471,27 @@ async def chat_completions(
                         
             yield "data: [DONE]\n\n"
         
+        except (httpx.ReadError, httpx.ConnectError) as e:
+            logger.error(f"Stream connection error: {e}")
+            error_data = {
+                "error": {
+                    "message": f"Stream connection error: {str(e)}",
+                    "type": "stream_error",
+                    "code": "connection_error"
+                }
+            }
+            yield f"data: {json.dumps(error_data)}\n\n"
+        except Exception as e:
+            logger.error(f"Unexpected stream error: {e}")
+            error_data = {
+                "error": {
+                    "message": f"Unexpected stream error: {str(e)}",
+                    "type": "stream_error",
+                    "code": "internal_error"
+                }
+            }
+            yield f"data: {json.dumps(error_data)}\n\n"
+        
         finally:
             # Finalize Log - 使用Gemini返回的真实token数据（如果可用）
             log_entry.status = "ok"
@@ -492,7 +525,7 @@ async def chat_completions(
             
     if openai_request.stream:
         try:
-            client = httpx.AsyncClient(timeout=60.0)
+            client = httpx.AsyncClient(timeout=120.0)
             req = client.build_request("POST", target_url, json=gemini_payload, headers=headers)
             response = await client.send(req, stream=True)
 
@@ -513,7 +546,37 @@ async def chat_completions(
                 )
                 return JSONResponse(content=openai_error, status_code=response.status_code)
             
-            return StreamingResponse(response_generator(response), media_type="text/event-stream")
+            async def safe_chat_stream_generator(response, client):
+                debug_log("Entering safe_chat_stream_generator")
+                try:
+                    async for chunk in response_generator(response):
+                        yield chunk
+                except (httpx.ReadError, httpx.ConnectError) as e:
+                    logger.error(f"Chat stream connection error: {e}")
+                    error_data = {
+                        "error": {
+                            "message": f"Chat stream connection error: {str(e)}",
+                            "type": "stream_error",
+                            "code": "connection_error"
+                        }
+                    }
+                    yield f"data: {json.dumps(error_data)}\n\n"
+                except Exception as e:
+                    logger.error(f"Unexpected chat stream error: {e}", exc_info=True)
+                    error_data = {
+                        "error": {
+                            "message": f"Unexpected chat stream error: {str(e)}",
+                            "type": "stream_error",
+                            "code": "internal_error"
+                        }
+                    }
+                    yield f"data: {json.dumps(error_data)}\n\n"
+                finally:
+                    await client.aclose()
+                    debug_log("Chat stream client closed")
+
+            debug_log("Creating StreamingResponse with safe_chat_stream_generator")
+            return StreamingResponse(safe_chat_stream_generator(response, client), media_type="text/event-stream")
         
         except Exception as e:
             log_entry.status = "error"
@@ -533,7 +596,7 @@ async def chat_completions(
                 target_url,
                 json=gemini_payload,
                 headers=headers,
-                timeout=60.0
+                timeout=120.0
             )
             
             # 正确处理非200状态码

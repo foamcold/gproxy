@@ -40,23 +40,40 @@ async def generic_proxy(target_url: str, request: Request):
     body = await request.body()
     
     # Create client
-    async with httpx.AsyncClient(follow_redirects=True) as client:
-        try:
-            req = client.build_request(
-                method,
-                target_url,
-                headers=headers,
-                content=body,
-                params=request.query_params
-            )
-            
-            response = await client.send(req, stream=True)
-            
-            return StreamingResponse(
-                response.aiter_bytes(),
-                status_code=response.status_code,
-                headers=dict(response.headers),
-                background=None
-            )
-        except Exception as e:
-            raise HTTPException(status_code=502, detail=f"Proxy error: {e}")
+    # NOTE: We cannot use 'async with' here because we need the client to stay open
+    # for the StreamingResponse. We must close it manually in the generator.
+    client = httpx.AsyncClient(follow_redirects=True)
+    
+    try:
+        req = client.build_request(
+            method,
+            target_url,
+            headers=headers,
+            content=body,
+            params=request.query_params
+        )
+        
+        response = await client.send(req, stream=True)
+        
+        async def safe_stream_generator(response, client):
+            try:
+                async for chunk in response.aiter_bytes():
+                    yield chunk
+            except (httpx.ReadError, httpx.ConnectError) as e:
+                # Log the error but don't crash the server
+                print(f"Generic proxy stream error: {e}")
+            except Exception as e:
+                print(f"Unexpected generic proxy stream error: {e}")
+            finally:
+                await response.aclose()
+                await client.aclose()
+
+        return StreamingResponse(
+            safe_stream_generator(response, client),
+            status_code=response.status_code,
+            headers=dict(response.headers),
+            background=None
+        )
+    except Exception as e:
+        await client.aclose()
+        raise HTTPException(status_code=502, detail=f"Proxy error: {e}")
