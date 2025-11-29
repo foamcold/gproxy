@@ -5,6 +5,7 @@ from app.core.config import settings
 from app.core.database import engine, Base
 from app.models import * # noqa
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Ensure data directory exists

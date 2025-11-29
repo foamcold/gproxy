@@ -7,7 +7,7 @@ from app.api import deps
 from app.models.log import Log
 from app.models.user import User
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import datetime, timezone
 
 router = APIRouter()
 
@@ -26,6 +26,9 @@ class LogSchema(BaseModel):
 
     class Config:
         from_attributes = True
+        json_encoders = {
+            datetime: lambda v: v.replace(tzinfo=timezone.utc).isoformat().replace('+00:00', 'Z')
+        }
 
 @router.get("/", response_model=List[LogSchema])
 async def read_logs(
@@ -49,8 +52,9 @@ async def read_logs(
     # Map to schema manually or let pydantic handle it if structure matches
     # We need to flatten exclusive_key.key to exclusive_key_key
     results = []
+    
     for log in logs:
-        log_dict = {
+        log_data = {
             "id": log.id,
             "model": log.model,
             "status": log.status,
@@ -63,6 +67,6 @@ async def read_logs(
             "created_at": log.created_at,
             "exclusive_key_key": log.exclusive_key.key if log.exclusive_key else None
         }
-        results.append(log_dict)
+        results.append(LogSchema(**log_data))
         
     return results

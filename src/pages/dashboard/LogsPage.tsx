@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { format } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
 import { API_BASE_URL } from '@/utils/api';
 import { cn } from '@/lib/utils';
 
@@ -72,7 +74,7 @@ export default function LogsPage() {
                                 logs.map((log) => (
                                     <tr key={log.id} className="hover:bg-accent/50">
                                         <td className="p-4 whitespace-nowrap">
-                                            {new Date(log.created_at).toLocaleString()}
+                                            {format(toZonedTime(new Date(log.created_at), 'Asia/Shanghai'), 'yyyy-MM-dd HH:mm:ss')}
                                         </td>
                                         <td className="p-4 font-mono text-xs max-w-[150px] truncate" title={log.exclusive_key_key}>
                                             {log.exclusive_key_key ? log.exclusive_key_key.substring(0, 20) + '...' : '-'}

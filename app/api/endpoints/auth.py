@@ -79,7 +79,7 @@ async def send_verification_code(
             raise HTTPException(status_code=403, detail="Email alias not allowed")
     
     # 检查是否在60秒内已发送过验证码
-    time_60s_ago = datetime.utcnow() - timedelta(seconds=60)
+    time_60s_ago = datetime.now(timezone.utc) - timedelta(seconds=60)
     recent_code = await db.execute(
         select(VerificationCode).filter(
             VerificationCode.email == request.email,

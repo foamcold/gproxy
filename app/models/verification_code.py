@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from app.core.database import Base
 
 class VerificationCode(Base):
@@ -11,12 +11,12 @@ class VerificationCode(Base):
     code = Column(String(6), nullable=False)  # 6位验证码
     type = Column(String, nullable=False)  # register, reset_password
     is_used = Column(Boolean, default=False)  # 是否已使用
-    expires_at = Column(DateTime, nullable=False)  # 过期时间
-    created_at = Column(DateTime, default=datetime.utcnow)  # 创建时间
+    expires_at = Column(DateTime(timezone=True), nullable=False)  # 过期时间
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))  # 创建时间
     
     def is_expired(self) -> bool:
         """检查是否过期"""
-        return datetime.utcnow() > self.expires_at
+        return datetime.now(timezone.utc) > self.expires_at
     
     def is_valid(self) -> bool:
         """检查是否有效（未使用且未过期）"""
@@ -31,4 +31,4 @@ class VerificationCode(Base):
     @staticmethod
     def get_expiration_time() -> datetime:
         """获取过期时间（5分钟后）"""
-        return datetime.utcnow() + timedelta(minutes=5)
+        return datetime.now(timezone.utc) + timedelta(minutes=5)
