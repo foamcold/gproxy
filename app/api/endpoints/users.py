@@ -181,10 +181,19 @@ async def create_user_open(
     # 邮箱白名单验证
     if system_config and system_config.email_whitelist_enabled:
         domain = user_in.email.split('@')[-1]
-        if domain not in system_config.email_whitelist:
+        
+        # 从JSON字符串解析白名单
+        import json
+        try:
+            allowed_domains = json.loads(system_config.email_whitelist)
+        except (json.JSONDecodeError, TypeError):
+            allowed_domains = [] # 解析失败则视为空列表
+
+        if domain not in allowed_domains:
+            allowed_domains_str = ", ".join(allowed_domains)
             raise HTTPException(
                 status_code=400,
-                detail=f"该邮箱后缀 ({domain}) 不允许注册",
+                detail=f"该邮箱后缀不允许注册。请使用以下后缀的邮箱: {allowed_domains_str}",
             )
             
     # TODO: Add registration config check (is_open_registration)

@@ -20,7 +20,6 @@ class SystemConfig(Base):
     # 邮箱配置
     email_whitelist_enabled = Column(Boolean, default=False)
     email_whitelist = Column(Text, default='["qq.com", "outlook.com", "gmail.com"]')  # JSON数组
-    email_alias_restriction = Column(Boolean, default=False)
     
     # SMTP配置
     smtp_host = Column(String, nullable=True)

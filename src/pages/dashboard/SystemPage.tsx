@@ -19,7 +19,6 @@ interface SystemConfig {
     enable_turnstile: boolean;
     email_whitelist_enabled: boolean;
     email_whitelist: string[];
-    email_alias_restriction: boolean;
     smtp_host: string | null;
     smtp_port: number;
     smtp_user: string | null;
@@ -257,17 +256,6 @@ export default function SystemPage() {
                         </div>
                     )}
 
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <Label htmlFor="email_alias_restriction">限制邮箱别名</Label>
-                            <p className="text-sm text-muted-foreground">限制gmail.com等支持别名的邮箱使用符号</p>
-                        </div>
-                        <Switch
-                            id="email_alias_restriction"
-                            checked={config.email_alias_restriction}
-                            onCheckedChange={(checked) => setConfig({ ...config, email_alias_restriction: checked })}
-                        />
-                    </div>
                 </div>
             </div>
 

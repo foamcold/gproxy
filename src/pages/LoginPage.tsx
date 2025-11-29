@@ -20,6 +20,7 @@ export default function LoginPage() {
     const [systemConfig, setSystemConfig] = useState<any>(null);
     const [countdown, setCountdown] = useState(0);
     const [loading, setLoading] = useState(false);
+    const [configLoading, setConfigLoading] = useState(true);
     const navigate = useNavigate();
     const { toast } = useToast();
     const auth = useAuth();
@@ -45,8 +46,10 @@ export default function LoginPage() {
        if (!/^[a-zA-Z.]+$/.test(topLevelDomain)) return ". 符号后的部分只能包含字母";
 
        if (systemConfig?.email_whitelist_enabled) {
-           if (!systemConfig.email_whitelist.includes(domainPart)) {
-               return `该邮箱后缀 (${domainPart}) 不允许注册`;
+           const allowedDomains = systemConfig.email_whitelist || [];
+           if (!allowedDomains.includes(domainPart)) {
+               const allowedDomainsStr = allowedDomains.join(', ');
+               return `该邮箱后缀不允许注册。请使用以下后缀的邮箱: ${allowedDomainsStr}`;
            }
        }
        
@@ -56,12 +59,15 @@ export default function LoginPage() {
     // 加载系统配置
     useEffect(() => {
         const fetchConfig = async () => {
+            setConfigLoading(true);
             try {
                 const response = await axios.get(`${API_BASE_URL}/system/config`);
                 setSystemConfig(response.data);
             } catch (error) {
                 // 如果无法加载配置，使用默认值
                 setSystemConfig({ enable_turnstile: false, require_email_verification: false });
+            } finally {
+               setConfigLoading(false);
             }
         };
         fetchConfig();
@@ -69,10 +75,12 @@ export default function LoginPage() {
 
     // 发送验证码
     const handleSendCode = async () => {
-        if (!email) {
+        const emailError = validateEmail(email);
+        if (emailError) {
             toast({
                 variant: 'error',
-                title: '请输入邮箱',
+                title: '邮箱格式错误',
+                description: emailError,
             });
             return;
         }
@@ -298,6 +306,9 @@ export default function LoginPage() {
                         </form>
                     ) : (
                         /* 注册表单 */
+                        configLoading ? (
+                            <div className="text-center text-muted-foreground">加载配置中...</div>
+                        ) : (
                         <form onSubmit={handleRegister} className="space-y-4">
                             <div className="space-y-2">
                                 <Label htmlFor="register-username">用户名</Label>
@@ -352,35 +363,34 @@ export default function LoginPage() {
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="register-code">验证码（可选）</Label>
-                                <div className="flex gap-2">
-                                    <div className="relative flex-1">
-                                        <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                        <Input
-                                            id="register-code"
-                                            type="text"
-                                            placeholder="输入6位验证码"
-                                            value={verificationCode}
-                                            onChange={(e) => setVerificationCode(e.target.value)}
-                                            className="pl-10"
-                                            maxLength={6}
-                                        />
+                            {systemConfig?.require_email_verification && (
+                                <div className="space-y-2">
+                                    <Label htmlFor="register-code">验证码</Label>
+                                    <div className="flex gap-2">
+                                        <div className="relative flex-1">
+                                            <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                            <Input
+                                                id="register-code"
+                                                type="text"
+                                                placeholder="输入6位验证码"
+                                                value={verificationCode}
+                                                onChange={(e) => setVerificationCode(e.target.value)}
+                                                className="pl-10"
+                                                maxLength={6}
+                                            />
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={handleSendCode}
+                                            disabled={countdown > 0}
+                                            className="shrink-0"
+                                        >
+                                            {countdown > 0 ? `${countdown}s` : '发送'}
+                                        </Button>
                                     </div>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        onClick={handleSendCode}
-                                        disabled={countdown > 0 || !email}
-                                        className="shrink-0"
-                                    >
-                                        {countdown > 0 ? `${countdown}s` : '发送'}
-                                    </Button>
                                 </div>
-                                <p className="text-xs text-muted-foreground">
-                                    如果系统启用邮箱验证，请先发送验证码
-                                </p>
-                            </div>
+                            )}
 
                             <div className="space-y-2">
                                 <Label htmlFor="register-password">密码</Label>
@@ -431,6 +441,7 @@ export default function LoginPage() {
                                 {loading ? '注册中...' : '注册'}
                             </Button>
                         </form>
+                        )
                     )}
                 </div>
             </div>

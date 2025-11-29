@@ -72,11 +72,6 @@ async def send_verification_code(
         if domain not in whitelist:
             raise HTTPException(status_code=403, detail="该邮箱域名不被允许")
     
-    # 检查邮箱别名限制
-    if system_config.email_alias_restriction:
-        local_part = request.email.split('@')[0]
-        if '+' in local_part or '.' in local_part:
-            raise HTTPException(status_code=403, detail="不支持邮箱别名")
     
     # 检查是否在60秒内已发送过验证码
     time_60s_ago = datetime.now(timezone.utc) - timedelta(seconds=60)

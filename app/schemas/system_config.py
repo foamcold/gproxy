@@ -15,7 +15,6 @@ class SystemConfigBase(BaseModel):
     # 邮箱配置
     email_whitelist_enabled: bool = False
     email_whitelist: List[str] = ["qq.com", "outlook.com", "gmail.com"]
-    email_alias_restriction: bool = False
     
     # SMTP配置
     smtp_host: Optional[str] = None

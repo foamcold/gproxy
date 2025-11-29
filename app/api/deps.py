@@ -64,6 +64,26 @@ async def get_current_active_admin(
         )
     return current_user
 
+async def get_optional_current_user(
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+) -> Optional[User]:
+    token = request.headers.get("Authorization")
+    if token:
+        try:
+            # 去除 "Bearer " 前缀
+            token = token.split(" ")[1]
+            payload = jwt.decode(
+                token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
+            )
+            token_data = TokenPayload(**payload)
+            result = await db.execute(select(User).filter(User.id == int(token_data.sub)))
+            user = result.scalars().first()
+            return user
+        except (JWTError, ValidationError, IndexError):
+            # Token 无效或格式错误
+            return None
+    return None
 
 async def get_official_key_from_proxy(
     request: Request,

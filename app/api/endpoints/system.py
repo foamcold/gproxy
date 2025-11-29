@@ -1,5 +1,5 @@
 import json
-from typing import Any
+from typing import Any, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -61,22 +61,23 @@ async def get_system_stats(
 @router.get("/config", response_model=SystemConfig)
 async def get_system_config(
     db: AsyncSession = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_superuser),
+    current_user: Optional[User] = Depends(deps.get_optional_current_user),
 ) -> Any:
     """
-    获取系统配置（所有用户可见，但敏感信息仅管理员可见）
+    获取系统配置。
+    - 未登录用户可获取公开配置。
+    - 管理员可获取包含敏感信息的完整配置。
     """
     result = await db.execute(select(SystemConfigModel))
     config = result.scalars().first()
     
     if not config:
-        # 如果没有配置，创建默认配置
         config = SystemConfigModel()
         db.add(config)
         await db.commit()
         await db.refresh(config)
-    
-    # 将email_whitelist从JSON字符串转换为列表
+
+    # 基础公开配置
     config_dict = {
         "id": config.id,
         "site_name": config.site_name,
@@ -87,12 +88,12 @@ async def get_system_config(
         "enable_turnstile": config.enable_turnstile,
         "email_whitelist_enabled": config.email_whitelist_enabled,
         "email_whitelist": json.loads(config.email_whitelist) if config.email_whitelist else [],
-        "email_alias_restriction": config.email_alias_restriction,
         "log_level": config.log_level,
+        "turnstile_site_key": config.turnstile_site_key if config.enable_turnstile else None,
     }
-    
-    # 敏感信息仅管理员可见
-    if current_user.role == "admin":
+
+    # 如果是管理员，补充敏感信息
+    if current_user and current_user.role in ["admin", "super_admin"]:
         config_dict.update({
             "smtp_host": config.smtp_host,
             "smtp_port": config.smtp_port,
@@ -100,11 +101,10 @@ async def get_system_config(
             "smtp_password": config.smtp_password,
             "smtp_from": config.smtp_from,
             "smtp_use_tls": config.smtp_use_tls,
-            "turnstile_site_key": config.turnstile_site_key,
             "turnstile_secret_key": config.turnstile_secret_key,
         })
     else:
-        # 普通用户只能看到公开信息
+        # 对于非管理员或未登录用户，确保敏感字段为 None
         config_dict.update({
             "smtp_host": None,
             "smtp_port": 587,
@@ -112,10 +112,9 @@ async def get_system_config(
             "smtp_password": None,
             "smtp_from": None,
             "smtp_use_tls": True,
-            "turnstile_site_key": config.turnstile_site_key if config.enable_turnstile else None,
             "turnstile_secret_key": None,
         })
-    
+
     return config_dict
 
 @router.put("/config", response_model=SystemConfig)
@@ -144,7 +143,6 @@ async def update_system_config(
     config.enable_turnstile = config_in.enable_turnstile
     config.email_whitelist_enabled = config_in.email_whitelist_enabled
     config.email_whitelist = json.dumps(config_in.email_whitelist)
-    config.email_alias_restriction = config_in.email_alias_restriction
     
     # SMTP配置
     config.smtp_host = config_in.smtp_host
@@ -177,7 +175,6 @@ async def update_system_config(
         "enable_turnstile": config.enable_turnstile,
         "email_whitelist_enabled": config.email_whitelist_enabled,
         "email_whitelist": json.loads(config.email_whitelist),
-        "email_alias_restriction": config.email_alias_restriction,
         "smtp_host": config.smtp_host,
         "smtp_port": config.smtp_port,
         "smtp_user": config.smtp_user,
