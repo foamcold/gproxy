@@ -93,19 +93,21 @@ class GeminiService:
         result = await db.execute(select(OfficialKey).filter(OfficialKey.key == key_str))
         key = result.scalars().first()
         if key:
-            key.last_status = str(status_code)
             key.last_status_code = status_code
             key.usage_count += 1
 
             if 200 <= status_code < 300:
                 key.total_tokens = (key.total_tokens or 0) + input_tokens + output_tokens
                 key.error_count = 0 # Reset error count on success
+                key.last_status = str(status_code)
             else:
                 key.error_count = (key.error_count or 0) + 1
-                # Auto-disable logic can be added here, e.g., after 3 consecutive errors
+                # Auto-disable logic: after 3 consecutive errors
                 if key.error_count >= 3:
                     key.is_active = False
                     key.last_status = "auto_disabled"
+                else:
+                    key.last_status = str(status_code)
 
             await db.commit()
 

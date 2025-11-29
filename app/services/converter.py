@@ -194,17 +194,26 @@ class Converter:
                     "finish_reason": finish_reason
                 })
         
+        # 从Gemini响应中提取真实的token使用数据
+        usage = {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0
+        }
+        
+        if "usageMetadata" in response:
+            metadata = response["usageMetadata"]
+            usage["prompt_tokens"] = metadata.get("promptTokenCount", 0)
+            usage["completion_tokens"] = metadata.get("candidatesTokenCount", 0)
+            usage["total_tokens"] = metadata.get("totalTokenCount", 0)
+        
         return {
             "id": f"chatcmpl-{uuid.uuid4()}",
             "object": "chat.completion",
             "created": int(time.time()),
             "model": model,
             "choices": choices,
-            "usage": {
-                "prompt_tokens": 0,
-                "completion_tokens": 0,
-                "total_tokens": 0
-            }
+            "usage": usage
         }
 
     @staticmethod

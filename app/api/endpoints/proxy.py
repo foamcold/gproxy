@@ -350,6 +350,9 @@ async def chat_completions(
         "x-goog-api-key": official_key
     }
 
+    # 计算输入token - 使用实际发送的gemini_payload而非原始body
+    input_tokens_estimate = len(json.dumps(gemini_payload)) // 4
+
     # Log entry creation (initial)
     log_entry = Log(
         exclusive_key_id=exclusive_key.id if exclusive_key else None,
@@ -357,7 +360,7 @@ async def chat_completions(
         model=model,
         status="pending",
         is_stream=openai_request.stream,
-        input_tokens=len(json.dumps(body)) // 4
+        input_tokens=input_tokens_estimate
     )
     db.add(log_entry)
     await db.commit()
@@ -368,6 +371,9 @@ async def chat_completions(
         first_token_received = False
         full_response_text = ""
         buffer = ""
+        # 用于存储从Gemini流式响应中提取的token统计
+        usage_metadata = None
+        
         try:
             async for chunk in response.aiter_text():
                 if not first_token_received:
@@ -398,6 +404,27 @@ async def chat_completions(
                             
                             try:
                                 gemini_chunk = json.loads(json_str)
+                                
+                                # 检查是否是流的最后一个chunk（包含finishReason和usageMetadata）
+                                # Gemini API在流式响应中，只在最后一个chunk中返回usageMetadata
+                                # 通过检测finishReason确保我们只保存最后一条的metadata
+                                if "usageMetadata" in gemini_chunk:
+                                    # 检查是否有candidates且包含finishReason（流结束标志）
+                                    has_finish_reason = False
+                                    if "candidates" in gemini_chunk:
+                                        for candidate in gemini_chunk["candidates"]:
+                                            if candidate.get("finishReason"):
+                                                has_finish_reason = True
+                                                break
+                                    
+                                    # 只在检测到流结束时保存usageMetadata，或者无条件保存（后者会被最后一个覆盖）
+                                    # 为了健壮性，我们采用无条件保存策略，确保即使API行为变化也能获取到最后的metadata
+                                    usage_metadata = gemini_chunk["usageMetadata"]
+                                    if has_finish_reason:
+                                        debug_log(f"检测到流结束，保存usageMetadata: {usage_metadata}")
+                                    else:
+                                        debug_log(f"获取到usageMetadata（流未结束）: {usage_metadata}")
+                                
                                 openai_chunk = converter.gemini_to_openai_chunk(gemini_chunk, model)
                                 
                                 # Post-processing Regex on chunk content (Order: Local Post -> Global Post)
@@ -433,12 +460,22 @@ async def chat_completions(
             yield "data: [DONE]\n\n"
         
         finally:
-            # Finalize Log
+            # Finalize Log - 使用Gemini返回的真实token数据（如果可用）
             log_entry.status = "ok"
             log_entry.status_code = 200
             log_entry.latency = time.time() - start_time
             log_entry.ttft = ttft
-            log_entry.output_tokens = len(full_response_text) // 4
+            
+            # 如果Gemini流式响应返回了usageMetadata，使用真实数据
+            if usage_metadata:
+                log_entry.input_tokens = usage_metadata.get("promptTokenCount", log_entry.input_tokens)
+                log_entry.output_tokens = usage_metadata.get("candidatesTokenCount", 0)
+                debug_log(f"使用Gemini返回的真实token数据 - input: {log_entry.input_tokens}, output: {log_entry.output_tokens}")
+            else:
+                # Fallback: 使用文本长度估算输出token
+                log_entry.output_tokens = len(full_response_text) // 4
+                debug_log(f"使用估算的token数据 - input: {log_entry.input_tokens}, output: {log_entry.output_tokens}")
+            
             await db.commit()
             
             # 更新密钥状态
@@ -539,11 +576,21 @@ async def chat_completions(
                 
                 openai_response['choices'][0]['message']['content'] = content
             
-            # Log
+            # Log - 使用Gemini返回的真实token数据
             log_entry.status = "ok"
             log_entry.status_code = 200
             log_entry.latency = time.time() - start_time
-            log_entry.output_tokens = len(json.dumps(openai_response)) // 4
+            
+            # 从响应中获取真实的token统计
+            usage = openai_response.get('usage', {})
+            if usage.get('prompt_tokens', 0) > 0:
+                # 使用Gemini返回的真实数据
+                log_entry.input_tokens = usage['prompt_tokens']
+                log_entry.output_tokens = usage['completion_tokens']
+            else:
+                # Fallback: 如果没有真实数据，使用估算值
+                log_entry.output_tokens = len(json.dumps(openai_response)) // 4
+            
             await db.commit()
 
             # 更新密钥状态
