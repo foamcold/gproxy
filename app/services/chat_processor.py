@@ -196,24 +196,19 @@ class ChatProcessor:
             async for chunk in response.aiter_text():
                 logger.debug(f"原始 Chunk: {chunk}")
                 buffer += chunk
-                # 移除开头的 '[' 和 结尾的 ']' (如果存在)
-                processed_buffer = buffer.strip()
-                if processed_buffer.startswith('['):
-                    processed_buffer = processed_buffer[1:]
-                if processed_buffer.endswith(']'):
-                    processed_buffer = processed_buffer[:-1]
-                
-                # Gemini流式是以逗号分割的JSON对象
-                parts = processed_buffer.split('},{')
-                
-                last_processed_index = 0
-                for i, part in enumerate(parts):
-                    # 重新组合被分割的JSON对象
-                    if i > 0: part = '{' + part
-                    if i < len(parts) - 1: part = part + '}'
+                # 尝试循环解析 buffer 中的所有完整 JSON 对象
+                decoder = json.JSONDecoder()
+                while buffer:
+                    # 去掉前导的空白字符、逗号或左方括号，这些是数组的分隔符
+                    buffer = buffer.lstrip(' \t\n\r,([')
+                    if not buffer:
+                        break
                     
                     try:
-                        gemini_chunk = json.loads(part)
+                        gemini_chunk, idx = decoder.raw_decode(buffer)
+                        # idx 是 JSON 对象结束的索引
+                        
+                        # 处理解析出的 chunk
                         openai_chunk = universal_converter.gemini_to_openai_chunk(gemini_chunk, model)
                         logger.debug(f"转换后的 OpenAI Chunk: {openai_chunk}")
 
@@ -225,20 +220,14 @@ class ChatProcessor:
                         
                         yield f"data: {json.dumps(openai_chunk)}\n\n".encode()
                         
-                        # 记录我们成功处理到了哪里
-                        original_part_length = len(parts[i]) + (1 if i < len(parts) - 1 else 0) # 加回逗号的长度
-                        last_processed_index += original_part_length
-
-
+                        # 将 buffer 指针向前移动，准备解析下一个对象
+                        buffer = buffer[idx:]
+                        
                     except json.JSONDecodeError:
-                        # 如果解析失败，说明最后一个part不完整，把它留在缓冲区里
+                        # 说明当前 buffer 开头的数据还不足以构成一个完整的 JSON 对象
+                        # 或者真的格式错误。对于流式传输，通常是数据不完整。
+                        # 我们跳出循环，等待更多数据拼接到 buffer 后面
                         break
-                
-                # 从缓冲区移除已成功处理的部分
-                if last_processed_index > 0:
-                     # 找到原始buffer中对应的切片位置
-                    slice_point = buffer.find(parts[0]) + last_processed_index
-                    buffer = buffer[slice_point:]
         
         yield b"data: [DONE]\n\n"
 
