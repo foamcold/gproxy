@@ -4,6 +4,8 @@ import { PresetRegexPage } from '@/components/preset/PresetRegexPage';
 import { useToast } from '@/hooks/useToast';
 import { presetService, type Preset } from '@/services/presetService';
 import { presetRegexService } from '@/services/presetRegexService';
+import { format } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
 import { exportToJSON, importFromJSON } from '@/utils/exportImport';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -222,8 +224,8 @@ export default function PresetsPage() {
             const formattedRegex = regexRules.map(r => ({
                 name: r.name,
                 creator_username: r.creator_username,
-                created_at: r.created_at,
-                updated_at: r.updated_at,
+                created_at: r.created_at ? format(toZonedTime(new Date(r.created_at), 'Asia/Shanghai'), 'yyyy-MM-dd HH:mm:ss') : '',
+                updated_at: r.updated_at ? format(toZonedTime(new Date(r.updated_at), 'Asia/Shanghai'), 'yyyy-MM-dd HH:mm:ss') : '',
                 enabled: r.is_active, // 注意字段名转换
                 content: {
                     type: r.type,
@@ -236,16 +238,16 @@ export default function PresetsPage() {
             const exportData = {
                 name: selectedPreset.name,
                 type: 'preset',
-                creator_username: (selectedPreset as any).creator_username || 'unknown',
-                created_at: (selectedPreset as any).created_at || new Date().toISOString(),
-                updated_at: (selectedPreset as any).updated_at || new Date().toISOString(),
+                creator_username: (selectedPreset as any).creator_username || 'unknown', // creator_username not in interface
+                created_at: format(toZonedTime(new Date(selectedPreset.created_at), 'Asia/Shanghai'), 'yyyy-MM-dd HH:mm:ss'),
+                updated_at: format(toZonedTime(new Date(selectedPreset.updated_at), 'Asia/Shanghai'), 'yyyy-MM-dd HH:mm:ss'),
                 enabled: selectedPreset.is_active,
                 content: {
                     preset: presetItems.map(item => ({
                         name: item.name,
                         creator_username: item.creator_username || 'unknown',
-                        created_at: item.created_at,
-                        updated_at: item.updated_at,
+                        created_at: format(toZonedTime(new Date(item.created_at), 'Asia/Shanghai'), 'yyyy-MM-dd HH:mm:ss'),
+                        updated_at: format(toZonedTime(new Date(item.updated_at), 'Asia/Shanghai'), 'yyyy-MM-dd HH:mm:ss'),
                         enabled: item.enabled,
                         role: item.role,
                         type: item.type,

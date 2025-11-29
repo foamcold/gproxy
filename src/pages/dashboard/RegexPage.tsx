@@ -21,6 +21,8 @@ import {
     DialogDescription,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/useToast';
+import { format } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
 import { exportToJSON, importFromJSON } from '@/utils/exportImport';
 import { cn } from '@/lib/utils';
 import { confirm } from '@/components/ui/ConfirmDialog';
@@ -33,6 +35,8 @@ interface RegexRule {
     type: 'pre' | 'post';
     is_active: boolean;
     sort_order: number;
+    created_at: string;
+    updated_at: string;
 }
 
 interface SortableRuleItemProps {
@@ -283,9 +287,9 @@ export default function RegexPage() {
         const exportData = rules.map(rule => ({
             name: rule.name,
             type: 'regex',
-            creator_username: (rule as any).creator_username || 'unknown',
-            created_at: (rule as any).created_at || new Date().toISOString(),
-            updated_at: (rule as any).updated_at || new Date().toISOString(),
+            creator_username: (rule as any).creator_username || 'unknown', // creator_username is not in the interface, keep as any for now
+            created_at: format(toZonedTime(new Date(rule.created_at), 'Asia/Shanghai'), 'yyyy-MM-dd HH:mm:ss'),
+            updated_at: format(toZonedTime(new Date(rule.updated_at), 'Asia/Shanghai'), 'yyyy-MM-dd HH:mm:ss'),
             enabled: rule.is_active,
             content: {
                 type: rule.type,
@@ -303,9 +307,9 @@ export default function RegexPage() {
         const exportData = {
             name: rule.name,
             type: 'regex',
-            creator_username: (rule as any).creator_username || 'unknown',
-            created_at: (rule as any).created_at || new Date().toISOString(),
-            updated_at: (rule as any).updated_at || new Date().toISOString(),
+            creator_username: (rule as any).creator_username || 'unknown', // creator_username is not in the interface, keep as any for now
+            created_at: format(toZonedTime(new Date(rule.created_at), 'Asia/Shanghai'), 'yyyy-MM-dd HH:mm:ss'),
+            updated_at: format(toZonedTime(new Date(rule.updated_at), 'Asia/Shanghai'), 'yyyy-MM-dd HH:mm:ss'),
             enabled: rule.is_active,
             content: {
                 type: rule.type,

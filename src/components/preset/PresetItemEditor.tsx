@@ -8,6 +8,8 @@ import { PresetItemEditDialog } from './PresetItemEditDialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Preset, PresetItem } from '@/services/presetService';
 import { presetService } from '@/services/presetService';
+import { format } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
 import { useToast } from '@/hooks/useToast';
 import { exportToJSON, importFromJSON } from '@/utils/exportImport';
 
@@ -122,8 +124,8 @@ export function PresetItemEditor({ preset, onItemsChange }: PresetItemEditorProp
         const presetItems = localItems.map(item => ({
             name: item.name,
             creator_username: item.creator_username || 'unknown',
-            created_at: item.created_at,
-            updated_at: item.updated_at,
+            created_at: format(toZonedTime(new Date(item.created_at), 'Asia/Shanghai'), 'yyyy-MM-dd HH:mm:ss'),
+            updated_at: format(toZonedTime(new Date(item.updated_at), 'Asia/Shanghai'), 'yyyy-MM-dd HH:mm:ss'),
             enabled: item.enabled,
             role: item.role,
             type: item.type,
@@ -133,9 +135,9 @@ export function PresetItemEditor({ preset, onItemsChange }: PresetItemEditorProp
         const exportData = {
             name: preset.name,
             type: 'preset',
-            creator_username: (preset as any).creator_username || 'unknown',
-            created_at: (preset as any).created_at || new Date().toISOString(),
-            updated_at: (preset as any).updated_at || new Date().toISOString(),
+            creator_username: (preset as any).creator_username || 'unknown', // Not in interface
+            created_at: format(toZonedTime(new Date(preset.created_at), 'Asia/Shanghai'), 'yyyy-MM-dd HH:mm:ss'),
+            updated_at: format(toZonedTime(new Date(preset.updated_at), 'Asia/Shanghai'), 'yyyy-MM-dd HH:mm:ss'),
             enabled: preset.is_active,
             content: {
                 preset: presetItems,

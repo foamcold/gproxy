@@ -1,4 +1,5 @@
 from typing import Any, List
+from datetime import timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -25,7 +26,39 @@ async def read_presets(
     query = select(Preset).filter(Preset.user_id == current_user.id).order_by(Preset.sort_order).options(selectinload(Preset.items))
     result = await db.execute(query.offset(skip).limit(limit))
     presets = result.scalars().unique().all()
-    return presets
+    
+    # 立即字符串化方案
+    results = []
+    for preset in presets:
+        items = []
+        for item in preset.items:
+            items.append({
+                "id": item.id,
+                "preset_id": item.preset_id,
+                "role": item.role,
+                "type": item.type,
+                "name": item.name,
+                "content": item.content,
+                "sort_order": item.sort_order,
+                "enabled": item.enabled,
+                "creator_username": item.creator_username,
+                "created_at": item.created_at.replace(tzinfo=timezone.utc).isoformat().replace('+00:00', 'Z'),
+                "updated_at": item.updated_at.replace(tzinfo=timezone.utc).isoformat().replace('+00:00', 'Z'),
+            })
+
+        results.append({
+            "id": preset.id,
+            "name": preset.name,
+            "is_active": preset.is_active,
+            "sort_order": preset.sort_order,
+            "user_id": preset.user_id,
+            "creator_username": preset.creator_username,
+            "content": preset.content,
+            "created_at": preset.created_at.replace(tzinfo=timezone.utc).isoformat().replace('+00:00', 'Z'),
+            "updated_at": preset.updated_at.replace(tzinfo=timezone.utc).isoformat().replace('+00:00', 'Z'),
+            "items": items,
+        })
+    return results
 
 @router.post("/", response_model=PresetSchema)
 async def create_preset(

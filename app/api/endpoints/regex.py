@@ -6,6 +6,7 @@ from app.api import deps
 from app.models.regex import RegexRule
 from app.models.user import User
 from app.schemas.regex import RegexRule as RegexRuleSchema, RegexRuleCreate, RegexRuleUpdate
+from datetime import timezone
 
 router = APIRouter()
 
@@ -22,7 +23,24 @@ async def read_regex_rules(
     query = select(RegexRule).filter(RegexRule.user_id == current_user.id).order_by(RegexRule.sort_order)
     result = await db.execute(query.offset(skip).limit(limit))
     rules = result.scalars().all()
-    return rules
+    
+    # 立即字符串化方案
+    results = []
+    for rule in rules:
+        results.append({
+            "id": rule.id,
+            "name": rule.name,
+            "pattern": rule.pattern,
+            "replacement": rule.replacement,
+            "type": rule.type,
+            "is_active": rule.is_active,
+            "sort_order": rule.sort_order,
+            "user_id": rule.user_id,
+            "creator_username": rule.creator_username,
+            "created_at": rule.created_at.replace(tzinfo=timezone.utc).isoformat().replace('+00:00', 'Z'),
+            "updated_at": rule.updated_at.replace(tzinfo=timezone.utc).isoformat().replace('+00:00', 'Z'),
+        })
+    return results
 
 @router.post("/", response_model=RegexRuleSchema)
 async def create_regex_rule(
