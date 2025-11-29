@@ -41,7 +41,7 @@ class ChatProcessor:
         body = await request.json()
         target_format = "gemini" # 目前上游固定为Gemini
         
-        converted_body, original_format = universal_converter.convert(body, "openai")
+        converted_body, original_format = await universal_converter.convert_request(body, "openai")
         openai_request = ChatCompletionRequest(**converted_body)
 
         # 2. 加载预设和正则
@@ -51,17 +51,19 @@ class ChatProcessor:
         openai_request = self._apply_preprocessing(openai_request, presets, regex_rules, preset_regex_rules)
 
         # 4. 再次转换到目标格式
-        final_payload, _ = universal_converter.convert(openai_request.dict(), target_format)
+        final_payload, _ = await universal_converter.convert_request(openai_request.dict(), target_format)
         
         # 5. 发送到上游并处理响应
         if openai_request.stream:
             return self.stream_chat_completion(
                 final_payload, target_format, original_format, openai_request.model,
+                official_key=official_key,
                 global_rules=regex_rules, local_rules=preset_regex_rules
             )
         else:
             return await self.non_stream_chat_completion(
                 final_payload, target_format, original_format, openai_request.model,
+                official_key=official_key,
                 global_rules=regex_rules, local_rules=preset_regex_rules
             )
 
@@ -160,15 +162,20 @@ class ChatProcessor:
             return openai_error, response.status_code, "openai" # 错误总是返回OpenAI格式
 
         gemini_response = response.json()
-        openai_response = universal_converter.gemini_to_openai(gemini_response, model)
+        openai_response = universal_converter.gemini_response_to_openai_response(gemini_response, model)
         
-        if openai_response['choices'][0]['message'].get('content'):
+        if openai_response.get('choices') and openai_response['choices'][0]['message'].get('content'):
             content = openai_response['choices'][0]['message']['content']
             content = self._apply_postprocessing(content, global_rules, local_rules)
             openai_response['choices'][0]['message']['content'] = content
 
-        final_response, _ = universal_converter.convert(openai_response, original_format)
-        return final_response, 200, original_format
+        # 注意：这里我们转换的是Response，不再使用convert_request
+        # 目前我们只实现了到OpenAI的Response转换，如果需要支持其他输出格式，需要增加 convert_response 方法
+        # 假设 original_format 如果是 "gemini"，我们需要把 OpenAI Response 转回 Gemini Response
+        # 暂时如果 original_format 是 openai，我们直接返回。
+        # TODO: Implement universal_converter.convert_response(openai_response, original_format)
+        
+        return openai_response, 200, original_format
 
     async def stream_chat_completion(
         self, payload: Dict, upstream_format: ApiFormat, original_format: ApiFormat, model: str,
@@ -187,24 +194,51 @@ class ChatProcessor:
 
             buffer = ""
             async for chunk in response.aiter_text():
+                logger.debug(f"原始 Chunk: {chunk}")
                 buffer += chunk
-                # (此处省略处理JSON块的详细逻辑, 与proxy.py类似)
-                # ...
-                try:
-                    gemini_chunk = json.loads(buffer) # 简化表示
-                    buffer = "" # 清空缓冲区
+                # 移除开头的 '[' 和 结尾的 ']' (如果存在)
+                processed_buffer = buffer.strip()
+                if processed_buffer.startswith('['):
+                    processed_buffer = processed_buffer[1:]
+                if processed_buffer.endswith(']'):
+                    processed_buffer = processed_buffer[:-1]
+                
+                # Gemini流式是以逗号分割的JSON对象
+                parts = processed_buffer.split('},{')
+                
+                last_processed_index = 0
+                for i, part in enumerate(parts):
+                    # 重新组合被分割的JSON对象
+                    if i > 0: part = '{' + part
+                    if i < len(parts) - 1: part = part + '}'
                     
-                    openai_chunk = universal_converter.gemini_to_openai_chunk(gemini_chunk, model)
-                    if openai_chunk['choices'][0]['delta'].get('content'):
-                        content = openai_chunk['choices'][0]['delta']['content']
-                        content = self._apply_postprocessing(content, global_rules, local_rules)
-                        openai_chunk['choices'][0]['delta']['content'] = content
-                    
-                    final_chunk, _ = universal_converter.convert(openai_chunk, original_format) # 注意：这里需要流式转换器
-                    yield f"data: {json.dumps(final_chunk)}\n\n".encode()
+                    try:
+                        gemini_chunk = json.loads(part)
+                        openai_chunk = universal_converter.gemini_to_openai_chunk(gemini_chunk, model)
+                        logger.debug(f"转换后的 OpenAI Chunk: {openai_chunk}")
 
-                except json.JSONDecodeError:
-                    continue # 继续接收数据
+                        if openai_chunk.get('choices') and openai_chunk['choices'][0]['delta'].get('content'):
+                            content = openai_chunk['choices'][0]['delta']['content']
+                            content = self._apply_postprocessing(content, global_rules, local_rules)
+                            openai_chunk['choices'][0]['delta']['content'] = content
+                            logger.debug(f"后置处理后的内容: {content}")
+                        
+                        yield f"data: {json.dumps(openai_chunk)}\n\n".encode()
+                        
+                        # 记录我们成功处理到了哪里
+                        original_part_length = len(parts[i]) + (1 if i < len(parts) - 1 else 0) # 加回逗号的长度
+                        last_processed_index += original_part_length
+
+
+                    except json.JSONDecodeError:
+                        # 如果解析失败，说明最后一个part不完整，把它留在缓冲区里
+                        break
+                
+                # 从缓冲区移除已成功处理的部分
+                if last_processed_index > 0:
+                     # 找到原始buffer中对应的切片位置
+                    slice_point = buffer.find(parts[0]) + last_processed_index
+                    buffer = buffer[slice_point:]
         
         yield b"data: [DONE]\n\n"
 

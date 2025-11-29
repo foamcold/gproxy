@@ -2,7 +2,7 @@ import json
 import time
 import httpx
 import logging
-from typing import Any, List
+from typing import Any, List, AsyncGenerator
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse, JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -231,7 +231,7 @@ async def chat_completions(
     if model.startswith("gpt-"):
         model = "gemini-1.5-flash"
     
-    gemini_payload, _ = await universal_converter.convert(openai_request.dict(), "gemini")
+    gemini_payload, _ = await universal_converter.convert_request(openai_request.dict(), "gemini")
 
     # 5. Send Request
     method = "streamGenerateContent" if openai_request.stream else "generateContent"
@@ -265,5 +265,5 @@ async def chat_completions(
             return JSONResponse(content=openai_error, status_code=response.status_code)
         
         gemini_response = response.json()
-        openai_response = universal_converter.gemini_to_openai(gemini_response, model)
+        openai_response = universal_converter.gemini_response_to_openai_response(gemini_response, model)
         return JSONResponse(content=openai_response)

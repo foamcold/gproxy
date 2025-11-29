@@ -1,5 +1,6 @@
+from typing import AsyncGenerator
 from fastapi import APIRouter, Request, HTTPException, Depends, BackgroundTasks
-from fastapi.responses import StreamingResponse, Response
+from fastapi.responses import StreamingResponse, Response, JSONResponse
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.services.gemini_service import gemini_service

@@ -4,6 +4,7 @@ import time
 import uuid
 import httpx
 import base64
+import asyncio
 from app.schemas.openai import ChatCompletionRequest
 
 # 定义支持的API格式
@@ -18,12 +19,6 @@ class UniversalConverter:
     def detect_format(self, body: Dict[str, Any]) -> ApiFormat:
         """
         通过请求体的结构检测API格式。
-
-        Args:
-            body: 请求体内容。
-
-        Returns:
-            检测到的API格式 ("openai", "gemini", "claude")。
         """
         if "contents" in body and isinstance(body["contents"], list):
             return "gemini"
@@ -34,16 +29,9 @@ class UniversalConverter:
         raise ValueError("无法检测到API格式或格式不支持")
 
     # --- 主转换入口 ---
-    def convert(self, body: Dict[str, Any], to_format: ApiFormat) -> Tuple[Dict[str, Any], ApiFormat]:
+    async def convert_request(self, body: Dict[str, Any], to_format: ApiFormat) -> Tuple[Dict[str, Any], ApiFormat]:
         """
         将请求体从一种格式转换为另一种格式。
-
-        Args:
-            body: 原始请求体。
-            to_format: 目标API格式。
-
-        Returns:
-            一个元组，包含转换后的请求体和原始请求体的格式。
         """
         from_format = self.detect_format(body)
         if from_format == to_format:
@@ -52,36 +40,72 @@ class UniversalConverter:
         # 中转枢纽：任何格式都先转为OpenAI格式
         openai_body = body
         if from_format != "openai":
-            converter_func = getattr(self, f"{from_format}_to_openai", None)
+            converter_func = getattr(self, f"{from_format}_request_to_openai_request", None)
             if not callable(converter_func):
-                raise NotImplementedError(f"从 {from_format} 到 openai 的转换未实现")
-            # 注意：这里的转换函数需要适配不同的输入结构
-            openai_body = converter_func(body, model=body.get("model", "unknown"))
+                raise NotImplementedError(f"从 {from_format} 请求到 openai 请求的转换未实现")
+            
+            if asyncio.iscoroutinefunction(converter_func):
+                openai_body = await converter_func(body)
+            else:
+                openai_body = converter_func(body)
 
         # 如果目标是OpenAI，直接返回
         if to_format == "openai":
             return openai_body, from_format
 
         # 从OpenAI格式转换为目标格式
-        final_converter_func = getattr(self, f"openai_to_{to_format}", None)
+        final_converter_func = getattr(self, f"openai_request_to_{to_format}_request", None)
         if not callable(final_converter_func):
-            raise NotImplementedError(f"从 openai 到 {to_format} 的转换未实现")
+            raise NotImplementedError(f"从 openai 请求到 {to_format} 请求的转换未实现")
         
-        # 为了调用openai_to_gemini，我们需要一个ChatCompletionRequest对象
-        # 注意：这部分可能需要根据实际情况调整，特别是对于从非openai格式转换来的情况
-        # 这里假设经过to_openai转换后，结构是兼容ChatCompletionRequest的
         if not isinstance(openai_body, ChatCompletionRequest):
              openai_request = ChatCompletionRequest(**openai_body)
         else:
              openai_request = openai_body
         
-        converted_body = final_converter_func(openai_request)
+        if asyncio.iscoroutinefunction(final_converter_func):
+            converted_body = await final_converter_func(openai_request)
+        else:
+            converted_body = final_converter_func(openai_request)
 
         return converted_body, from_format
 
     # --- OpenAI <-> Gemini ---
-    async def openai_to_gemini(self, request: ChatCompletionRequest) -> Dict[str, Any]:
-        """复用并扩展现有的 openai_to_gemini 逻辑"""
+    
+    def gemini_request_to_openai_request(self, body: Dict[str, Any]) -> Dict[str, Any]:
+        """将Gemini请求转换为OpenAI请求"""
+        messages = []
+        contents = body.get("contents", [])
+        system_instruction = body.get("system_instruction")
+        
+        if system_instruction:
+            parts = system_instruction.get("parts", [])
+            content = "".join([p.get("text", "") for p in parts if "text" in p])
+            if content:
+                messages.append({"role": "system", "content": content})
+                
+        for content in contents:
+            role = content.get("role")
+            if role == "model": role = "assistant"
+            
+            parts = content.get("parts", [])
+            text_content = ""
+            for part in parts:
+                if "text" in part:
+                    text_content += part["text"]
+                # TODO: Handle function calls/responses in parts if needed
+                
+            messages.append({"role": role, "content": text_content})
+            
+        return {
+            "messages": messages,
+            # Gemini doesn't strictly have a model in the body usually (it's in URL),
+            # but we can try to extract or default.
+            "model": "gemini-1.5-pro"
+        }
+
+    async def openai_request_to_gemini_request(self, request: ChatCompletionRequest) -> Dict[str, Any]:
+        """将OpenAI请求转换为Gemini请求"""
         contents = []
         system_instruction = None
         
@@ -188,8 +212,8 @@ class UniversalConverter:
             
         return payload
 
-    def gemini_to_openai(self, response: Dict[str, Any], model: str) -> Dict[str, Any]:
-        """复用现有的 gemini_to_openai 逻辑"""
+    def gemini_response_to_openai_response(self, response: Dict[str, Any], model: str) -> Dict[str, Any]:
+        """将Gemini响应转换为OpenAI响应"""
         choices = []
         if "candidates" in response:
             for i, candidate in enumerate(response["candidates"]):
@@ -244,8 +268,34 @@ class UniversalConverter:
         }
 
     # --- OpenAI <-> Claude ---
-    def openai_to_claude(self, request: ChatCompletionRequest) -> Dict[str, Any]:
-        """将OpenAI格式转换为Claude格式"""
+
+    def claude_request_to_openai_request(self, body: Dict[str, Any]) -> Dict[str, Any]:
+        """将Claude请求转换为OpenAI请求"""
+        messages = []
+        
+        # 处理 System Prompt
+        system_prompt = body.get("system")
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+            
+        # 处理 Messages
+        claude_messages = body.get("messages", [])
+        for msg in claude_messages:
+            messages.append({
+                "role": msg.get("role"),
+                "content": msg.get("content")
+            })
+            
+        return {
+            "messages": messages,
+            "max_tokens": body.get("max_tokens"),
+            "temperature": body.get("temperature"),
+            "stream": body.get("stream", False),
+            "model": body.get("model", "claude-3-opus-20240229") # Default or pass through
+        }
+
+    def openai_request_to_claude_request(self, request: ChatCompletionRequest) -> Dict[str, Any]:
+        """将OpenAI请求转换为Claude请求"""
         system_prompt = None
         messages = []
         for msg in request.messages:
@@ -266,8 +316,8 @@ class UniversalConverter:
             # 其他参数映射...
         }
 
-    def claude_to_openai(self, response: Dict[str, Any], model: str) -> Dict[str, Any]:
-        """将Claude格式转换为OpenAI格式"""
+    def claude_response_to_openai_response(self, response: Dict[str, Any], model: str) -> Dict[str, Any]:
+        """将Claude响应转换为OpenAI响应"""
         # 实现逻辑...
         # 这需要根据Claude的具体响应格式来定
         return {
