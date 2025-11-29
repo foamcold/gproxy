@@ -8,9 +8,9 @@ from app.api import deps
 from app.models.key import OfficialKey, ExclusiveKey
 from app.models.user import User
 from app.schemas.common import PaginatedResponse
-from app.schemas.key import OfficialKey as OfficialKeySchema, OfficialKeyCreate, OfficialKeyUpdate
+from app.schemas.key import OfficialKey as OfficialKeySchema, OfficialKeyCreate, OfficialKeyUpdate, OfficialKeyBatchCreate
 from app.schemas.key import ExclusiveKey as ExclusiveKeySchema, ExclusiveKeyCreate, ExclusiveKeyUpdate
-from sqlalchemy import func
+from sqlalchemy import func, insert
 
 router = APIRouter()
 
@@ -75,6 +75,47 @@ async def create_official_key(
     await db.commit()
     await db.refresh(key)
     return key
+
+@router.post("/official/batch")
+async def create_official_keys_batch(
+    *,
+    db: AsyncSession = Depends(deps.get_db),
+    keys_in: OfficialKeyBatchCreate,
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Create new official keys in batch.
+    """
+    success_count = 0
+    fail_count = 0
+
+    # Get existing keys to avoid duplicates
+    existing_keys_res = await db.execute(select(OfficialKey.key).filter(OfficialKey.user_id == current_user.id))
+    existing_keys = {row[0] for row in existing_keys_res}
+
+    keys_to_insert = []
+    for key_str in keys_in.keys:
+        if key_str not in existing_keys:
+            keys_to_insert.append({
+                "key": key_str,
+                "user_id": current_user.id,
+                "is_active": keys_in.is_active
+            })
+            existing_keys.add(key_str) # Add to set to handle duplicates within the batch
+        else:
+            fail_count += 1
+    
+    if keys_to_insert:
+        try:
+            await db.execute(insert(OfficialKey), keys_to_insert)
+            await db.commit()
+            success_count = len(keys_to_insert)
+        except Exception as e:
+            await db.rollback()
+            fail_count += len(keys_to_insert)
+            print(f"Batch insert failed: {e}")
+
+    return {"success_count": success_count, "fail_count": fail_count}
 
 @router.delete("/official/{key_id}", response_model=OfficialKeySchema)
 async def delete_official_key(

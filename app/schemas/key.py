@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -9,6 +9,10 @@ class OfficialKeyBase(BaseModel):
 
 class OfficialKeyCreate(OfficialKeyBase):
     pass
+
+class OfficialKeyBatchCreate(BaseModel):
+    keys: List[str]
+    is_active: Optional[bool] = True
 
 class OfficialKeyUpdate(BaseModel):
     is_active: Optional[bool] = None

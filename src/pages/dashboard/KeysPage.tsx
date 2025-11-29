@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils';
 import { confirm } from '@/components/ui/ConfirmDialog';
 import { Pagination } from '@/components/ui/pagination';
 import { Card, CardContent } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import MaskedKey from '@/components/MaskedKey';
 
@@ -82,7 +83,7 @@ export default function KeysPage() {
     });
 
     const [isOfficialDialogOpen, setIsOfficialDialogOpen] = useState(false);
-    const [officialForm, setOfficialForm] = useState({ key: '', is_active: true });
+    const [officialForm, setOfficialForm] = useState({ key: '', is_active: true, is_batch: false });
     const [officialStatusFilter, setOfficialStatusFilter] = useState('all');
 
     // Selection State
@@ -317,16 +318,60 @@ export default function KeysPage() {
     const handleCreateOfficial = async (e: React.FormEvent) => {
         e.preventDefault();
         const token = localStorage.getItem('token');
-        try {
-            await axios.post(`${API_BASE_URL}/keys/official`, officialForm, {
-                headers: { Authorization: `Bearer ${token}` }
+        const headers = { Authorization: `Bearer ${token}` };
+
+        if (officialForm.is_batch) {
+            const keys = officialForm.key.split('\n').map(k => k.trim()).filter(k => k);
+            if (keys.length === 0) {
+                toast({ variant: 'error', title: '请输入至少一个 API Key' });
+                return;
+            }
+
+            const chunkSize = 100; // 每批次处理100个key
+            let successCount = 0;
+            let failCount = 0;
+            setIsOfficialDialogOpen(false); // 先关闭弹窗
+
+            for (let i = 0; i < keys.length; i += chunkSize) {
+                const chunk = keys.slice(i, i + chunkSize);
+                const payload = {
+                    keys: chunk,
+                    is_active: officialForm.is_active,
+                };
+                try {
+                    const response = await axios.post(`${API_BASE_URL}/keys/official/batch`, payload, { headers });
+                    successCount += response.data.success_count || chunk.length; // Fallback for simple response
+                    failCount += response.data.fail_count || 0;
+                } catch (error) {
+                    failCount += chunk.length;
+                    console.error('批量添加失败', error);
+                }
+                 // 提示每一批的结果
+                toast({
+                    title: `处理中... (${i + chunk.length}/${keys.length})`,
+                    description: `成功: ${successCount}, 失败: ${failCount}`,
+                });
+            }
+
+            toast({
+                variant: 'success',
+                title: '批量添加完成',
+                description: `总计: 成功 ${successCount} 个, 失败 ${failCount} 个`,
             });
-            setIsOfficialDialogOpen(false);
-            setOfficialForm({ key: '', is_active: true });
-            fetchOfficialKeys(officialData.page, officialData.size);
-            toast({ variant: 'success', title: '添加成功' });
-        } catch (error) {
-            toast({ variant: 'error', title: '添加失败' });
+            setOfficialForm({ key: '', is_active: true, is_batch: false });
+            fetchOfficialKeys(1, officialData.size);
+
+        } else {
+            // 单个添加逻辑
+            try {
+                await axios.post(`${API_BASE_URL}/keys/official`, { key: officialForm.key, is_active: officialForm.is_active }, { headers });
+                setIsOfficialDialogOpen(false);
+                setOfficialForm({ key: '', is_active: true, is_batch: false });
+                fetchOfficialKeys(officialData.page, officialData.size);
+                toast({ variant: 'success', title: '添加成功' });
+            } catch (error) {
+                toast({ variant: 'error', title: '添加失败' });
+            }
         }
     };
 
@@ -579,14 +624,6 @@ export default function KeysPage() {
                                         onCheckedChange={(checked) => setExclusiveForm({ ...exclusiveForm, enable_regex: checked })}
                                     />
                                 </div>
-                                <div className="flex items-center justify-between">
-                                    <Label htmlFor="ex-regex">启用正则</Label>
-                                    <Switch
-                                        id="ex-regex"
-                                        checked={exclusiveForm.enable_regex}
-                                        onCheckedChange={(checked) => setExclusiveForm({ ...exclusiveForm, enable_regex: checked })}
-                                    />
-                                </div>
                                 <DialogFooter className="flex justify-between items-center sm:justify-between">
                                     <div className="flex items-center gap-2">
                                         <Switch
@@ -642,15 +679,26 @@ export default function KeysPage() {
                                     </DialogHeader>
                                     <form onSubmit={handleCreateOfficial} className="space-y-4">
                                         <div className="space-y-2">
-                                            <Label htmlFor="key">API Key</Label>
-                                            <Input
-                                                id="key"
-                                                type="password"
-                                                value={officialForm.key}
-                                                onChange={(e) => setOfficialForm({ ...officialForm, key: e.target.value })}
-                                                placeholder="AIza..."
-                                                required
-                                            />
+                                            <Label htmlFor="key">{officialForm.is_batch ? 'API Keys (一行一个)' : 'API Key'}</Label>
+                                            {officialForm.is_batch ? (
+                                                <Textarea
+                                                    id="key-batch"
+                                                    value={officialForm.key}
+                                                    onChange={(e) => setOfficialForm({ ...officialForm, key: e.target.value })}
+                                                    placeholder="AIza...\nAIza...\nAIza..."
+                                                    required
+                                                    className="min-h-[120px] font-mono"
+                                                />
+                                            ) : (
+                                                <Input
+                                                    id="key"
+                                                    type="text"
+                                                    value={officialForm.key}
+                                                    onChange={(e) => setOfficialForm({ ...officialForm, key: e.target.value })}
+                                                    placeholder="AIza..."
+                                                    required
+                                                />
+                                            )}
                                         </div>
                                         <div className="flex items-center justify-between">
                                             <Label htmlFor="active">启用</Label>
@@ -658,6 +706,14 @@ export default function KeysPage() {
                                                 id="active"
                                                 checked={officialForm.is_active}
                                                 onCheckedChange={(checked) => setOfficialForm({ ...officialForm, is_active: checked })}
+                                            />
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <Label htmlFor="batch-mode">批量模式</Label>
+                                            <Switch
+                                                id="batch-mode"
+                                                checked={officialForm.is_batch}
+                                                onCheckedChange={(checked) => setOfficialForm({ ...officialForm, is_batch: checked, key: '' })}
                                             />
                                         </div>
                                         <DialogFooter>

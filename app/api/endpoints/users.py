@@ -23,6 +23,38 @@ async def read_users(
     users = result.scalars().all()
     return users
 
+@router.post("/", response_model=UserSchema)
+async def create_user(
+    *,
+    db: AsyncSession = Depends(deps.get_db),
+    email: str = Body(...),
+    password: str = Body(...),
+    username: str = Body(...),
+    current_user: User = Depends(deps.get_current_active_superuser),
+) -> Any:
+    """
+    Create new user by admin.
+    """
+    result = await db.execute(select(User).filter(User.email == email))
+    user = result.scalars().first()
+    if user:
+        raise HTTPException(
+            status_code=400,
+            detail="The user with this email already exists in the system.",
+        )
+    
+    user = User(
+        email=email,
+        username=username,
+        password_hash=security.get_password_hash(password),
+        is_active=True,
+        role="user",
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return user
+
 @router.put("/me", response_model=UserSchema)
 async def update_user_me(
     *,
