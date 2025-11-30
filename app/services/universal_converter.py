@@ -5,7 +5,10 @@ import uuid
 import httpx
 import base64
 import asyncio
+import logging
 from app.schemas.openai import ChatCompletionRequest
+
+logger = logging.getLogger(__name__)
 
 # 定义支持的API格式
 ApiFormat = Literal["openai", "gemini", "claude"]
@@ -226,14 +229,23 @@ class UniversalConverter:
                     tool_calls = []
                     
                     for part in candidate["content"]["parts"]:
+                        # 优先检查 thought 标记 (new-api 风格: thought 是 bool, text 是内容)
+                        is_thought = part.get("thought", False)
+                        
                         if "text" in part:
-                            content_str += part["text"]
-                        elif "thought" in part:
-                            # 将 Gemini 的 thought 转为 OpenAI 的 reasoning_content (非标准但广泛支持)
+                            if is_thought:
+                                if "reasoning_content" not in message:
+                                    message["reasoning_content"] = ""
+                                message["reasoning_content"] += part["text"]
+                            else:
+                                content_str += part["text"]
+                        elif "thought" in part and isinstance(part["thought"], str):
+                            # 兼容旧逻辑或非标准格式，如果 thought 本身是字符串内容
                             if "reasoning_content" not in message:
                                 message["reasoning_content"] = ""
-                            message["reasoning_content"] += str(part["thought"])
-                        elif "functionCall" in part:
+                            message["reasoning_content"] += part["thought"]
+                        
+                        if "functionCall" in part:
                             fc = part["functionCall"]
                             tool_calls.append({
                                 "id": f"call_{uuid.uuid4().hex[:8]}",
@@ -246,6 +258,10 @@ class UniversalConverter:
                     
                     if content_str:
                         message["content"] = content_str
+                    elif message["content"] is None and ("reasoning_content" in message or tool_calls):
+                        # 如果只有思考内容或工具调用，确保 content 不为 None，避免客户端报错
+                        message["content"] = ""
+
                     if tool_calls:
                         message["tool_calls"] = tool_calls
                         finish_reason = "tool_calls"
@@ -415,14 +431,22 @@ class UniversalConverter:
                     content_str = ""
                     tool_calls = []
                     for part in candidate["content"]["parts"]:
+                        is_thought = part.get("thought", False)
+                        
                         if "text" in part:
-                            content_str += part["text"]
-                        elif "thought" in part:
-                             # 将 Gemini 的 thought 转为 OpenAI 的 reasoning_content
+                            if is_thought:
+                                if "reasoning_content" not in delta:
+                                    delta["reasoning_content"] = ""
+                                delta["reasoning_content"] += part["text"]
+                            else:
+                                content_str += part["text"]
+                        elif "thought" in part and isinstance(part["thought"], str):
+                             # 兼容旧逻辑
                             if "reasoning_content" not in delta:
                                 delta["reasoning_content"] = ""
-                            delta["reasoning_content"] += str(part["thought"])
-                        elif "functionCall" in part:
+                            delta["reasoning_content"] += part["thought"]
+                        
+                        if "functionCall" in part:
                             fc = part["functionCall"]
                             tool_calls.append({
                                 "index": 0,
@@ -432,6 +456,9 @@ class UniversalConverter:
                             })
                     if content_str:
                         delta["content"] = content_str
+                    # 注意：在流式 chunk 中，如果 content 为空通常不需要发送 content 字段，
+                    # 除非客户端有特殊癖好。暂时保持原样，或者可以考虑发送 ""
+                    
                     if tool_calls:
                         delta["tool_calls"] = tool_calls
 

@@ -248,14 +248,22 @@ async def chat_completions(
                         yield f"data: {json.dumps(openai_error)}\n\n"
                         return
 
+                    buffer = ""
+                    decoder = json.JSONDecoder()
                     async for chunk in response.aiter_text():
-                        # (此处简化, 实际应处理JSON块)
-                        try:
-                            gemini_chunk = json.loads(chunk)
-                            openai_chunk = universal_converter.gemini_to_openai_chunk(gemini_chunk, model)
-                            yield f"data: {json.dumps(openai_chunk)}\n\n"
-                        except json.JSONDecodeError:
-                            continue
+                        buffer += chunk
+                        while buffer:
+                            buffer = buffer.lstrip(' \t\n\r,([')
+                            if not buffer:
+                                break
+                            try:
+                                gemini_chunk, idx = decoder.raw_decode(buffer)
+                                openai_chunk = universal_converter.gemini_to_openai_chunk(gemini_chunk, model)
+                                yield f"data: {json.dumps(openai_chunk)}\n\n"
+                                buffer = buffer[idx:]
+                            except json.JSONDecodeError:
+                                # 数据不足，等待下一个 chunk
+                                break
             yield "data: [DONE]\n\n"
         return StreamingResponse(stream_generator(), media_type="text/event-stream")
     else:
