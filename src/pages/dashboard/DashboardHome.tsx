@@ -29,13 +29,6 @@ export default function DashboardHome() {
 
     return (
         <div className="space-y-6">
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">概览</h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                    查看系统运行状态和关键指标概览
-                </p>
-            </div>
-
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

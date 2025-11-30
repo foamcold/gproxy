@@ -60,13 +60,7 @@ export default function LogsPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">日志</h1>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        查看系统请求记录和错误日志
-                    </p>
-                </div>
+            <div className="flex justify-end items-center">
                 <Button onClick={() => fetchLogs(logData.page, logData.size)} disabled={loading} variant="outline">
                     <RefreshCw className={cn("w-4 h-4 mr-2", loading && "animate-spin")} />
                     刷新

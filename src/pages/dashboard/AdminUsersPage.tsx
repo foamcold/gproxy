@@ -206,13 +206,7 @@ export default function AdminUsersPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">用户</h1>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        管理系统用户权限和账号状态
-                    </p>
-                </div>
+            <div className="flex justify-end items-center">
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                     <DialogTrigger asChild>
                         <Button onClick={() => handleOpenDialog()}>

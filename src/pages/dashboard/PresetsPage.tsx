@@ -385,16 +385,6 @@ export default function PresetsPage() {
 
     return (
         <div className="flex flex-col h-[calc(100vh-8rem)] gap-4">
-            {/* 顶部栏：标题 */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">预设</h1>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        管理和编辑您的 AI 提示词预设
-                    </p>
-                </div>
-            </div>
-
             {/* 功能工具栏 */}
             <div className="flex items-center gap-4 px-4 py-2 bg-card border rounded-lg shadow-sm">
                 {/* 预设选择下拉框 */}

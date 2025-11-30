@@ -374,13 +374,7 @@ export default function RegexPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">正则</h1>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        管理全局正则表达式，当前共 {rules.length} 条规则
-                    </p>
-                </div>
+            <div className="flex justify-end items-center">
                 <div className="flex gap-2">
                     <Button onClick={handleExport} variant="outline" size="sm">
                         <Download className="w-4 h-4 mr-2" />

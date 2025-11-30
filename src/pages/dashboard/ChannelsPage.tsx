@@ -379,7 +379,7 @@ export default function ChannelsPage() {
             {/* Left Sidebar - Channel List */}
             <div className="w-64 flex flex-col gap-4">
                 <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-semibold">渠道</h2>
+                    <h2 className="text-lg font-semibold">渠道列表</h2>
                     <Button size="sm" onClick={() => handleOpenChannelDialog()}>
                         <Plus className="w-4 h-4" />
                     </Button>
@@ -505,7 +505,7 @@ export default function ChannelsPage() {
                                                 <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">请求/错误</th>
                                                 <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Tokens</th>
                                                 <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">创建时间</th>
-                                                <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">启用/删除</th>
+                                                <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground"></th>
                                             </tr>
                                         </thead>
                                         <tbody className="[&_tr:last-child]:border-0">
@@ -542,7 +542,7 @@ export default function ChannelsPage() {
                                                     }
 
                                                     return (
-                                                        <tr key={key.id} className="border-b transition-colors hover:bg-muted/50">
+                                                        <tr key={key.id} className="border-b transition-colors hover:bg-muted/50 group">
                                                             <td className="p-4 align-middle">
                                                                 <Checkbox
                                                                     checked={selectedOfficialIds.has(key.id)}
@@ -584,7 +584,7 @@ export default function ChannelsPage() {
                                                                         checked={key.is_active}
                                                                         onCheckedChange={(checked) => handleToggleOfficialActive(key.id, checked)}
                                                                     />
-                                                                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteOfficial(key.id)}>
+                                                                    <Button variant="ghost" size="icon" className="text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleDeleteOfficial(key.id)}>
                                                                         <Trash2 className="w-4 h-4" />
                                                                     </Button>
                                                                 </div>

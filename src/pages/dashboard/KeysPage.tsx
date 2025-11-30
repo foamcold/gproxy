@@ -285,13 +285,6 @@ export default function KeysPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col gap-2">
-                <h1 className="text-3xl font-bold tracking-tight">密钥</h1>
-                <p className="text-muted-foreground">
-                    管理您的专属密钥
-                </p>
-            </div>
-
             <div className="flex justify-between items-center gap-4">
                 <div className="relative flex-1 max-w-md">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -325,7 +318,7 @@ export default function KeysPage() {
                                     <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">绑定渠道</th>
                                     <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">绑定预设</th>
                                     <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">启用正则</th>
-                                    <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">启用/删除</th>
+                                    <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground"></th>
                                 </tr>
                             </thead>
                             <tbody className="[&_tr:last-child]:border-0">
@@ -340,7 +333,7 @@ export default function KeysPage() {
                                     </tr>
                                 ) : (
                                     exclusiveData.items.map((key) => (
-                                        <tr key={key.id} className="border-b transition-colors hover:bg-muted/50">
+                                        <tr key={key.id} className="border-b transition-colors hover:bg-muted/50 group">
                                             <td className="p-4 align-middle">
                                                 <Checkbox
                                                     checked={selectedExclusiveIds.has(key.id)}
@@ -409,7 +402,7 @@ export default function KeysPage() {
                                                         checked={key.is_active}
                                                         onCheckedChange={(checked) => handleUpdateExclusive(key.id, { is_active: checked })}
                                                     />
-                                                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteExclusive(key.id)}>
+                                                    <Button variant="ghost" size="icon" className="text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleDeleteExclusive(key.id)}>
                                                         <Trash2 className="w-4 h-4" />
                                                     </Button>
                                                 </div>
