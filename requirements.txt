@@ -9,3 +9,5 @@ bcrypt
 httpx
 email-validator
 python-multipart
+aiosmtplib
+aiohttp
