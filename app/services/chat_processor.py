@@ -42,7 +42,7 @@ class ChatProcessor:
         body = await request.json()
         target_format = "gemini" # 目前上游固定为Gemini
         
-        converted_body, original_format = await universal_converter.convert_request(body, "openai")
+        converted_body, original_format = await universal_converter.convert_request(body, "openai", request=request)
         
         # 如果有模型覆盖，使用覆盖的模型
         if model_override:
@@ -60,10 +60,8 @@ class ChatProcessor:
         final_payload, _ = await universal_converter.convert_request(openai_request.dict(), target_format)
         
         # 5. 发送到上游并处理响应
-        # 关键修复：对于Gemini格式的请求，流式判断应基于URL路径，而不是body内容
-        is_stream_request = "streamGenerateContent" in str(request.url)
-
-        if is_stream_request:
+        # 修正流式判断逻辑：现在 UniversalConverter 会确保 stream 属性被正确设置
+        if openai_request.stream:
             return self.stream_chat_completion(
                 final_payload, target_format, original_format, openai_request.model,
                 official_key=official_key,
@@ -200,6 +198,7 @@ class ChatProcessor:
                 yield f"data: {json.dumps(openai_error)}\n\n".encode()
                 return
 
+            buffer = ""
             buffer = ""
             async for chunk in response.aiter_text():
                 buffer += chunk

@@ -6,6 +6,7 @@ import httpx
 import base64
 import asyncio
 import logging
+from fastapi import Request
 from app.schemas.openai import ChatCompletionRequest
 
 logger = logging.getLogger(__name__)
@@ -32,7 +33,7 @@ class UniversalConverter:
         raise ValueError("无法检测到API格式或格式不支持")
 
     # --- 主转换入口 ---
-    async def convert_request(self, body: Dict[str, Any], to_format: ApiFormat) -> Tuple[Dict[str, Any], ApiFormat]:
+    async def convert_request(self, body: Dict[str, Any], to_format: ApiFormat, request: Request = None) -> Tuple[Dict[str, Any], ApiFormat]:
         """
         将请求体从一种格式转换为另一种格式。
         """
@@ -46,11 +47,19 @@ class UniversalConverter:
             converter_func = getattr(self, f"{from_format}_request_to_openai_request", None)
             if not callable(converter_func):
                 raise NotImplementedError(f"从 {from_format} 请求到 openai 请求的转换未实现")
+
+            # 检查函数是否接受 request 参数
+            import inspect
+            sig = inspect.signature(converter_func)
             
+            kwargs = {'body': body}
+            if 'request' in sig.parameters and request:
+                kwargs['request'] = request
+
             if asyncio.iscoroutinefunction(converter_func):
-                openai_body = await converter_func(body)
+                openai_body = await converter_func(**kwargs)
             else:
-                openai_body = converter_func(body)
+                openai_body = converter_func(**kwargs)
 
         # 如果目标是OpenAI，直接返回
         if to_format == "openai":
@@ -75,7 +84,7 @@ class UniversalConverter:
 
     # --- OpenAI <-> Gemini ---
     
-    def gemini_request_to_openai_request(self, body: Dict[str, Any]) -> Dict[str, Any]:
+    def gemini_request_to_openai_request(self, body: Dict[str, Any], request: Request = None) -> Dict[str, Any]:
         """将Gemini请求转换为OpenAI请求"""
         messages = []
         contents = body.get("contents", [])
@@ -100,8 +109,13 @@ class UniversalConverter:
                 
             messages.append({"role": role, "content": text_content})
             
+        is_stream = False
+        if request and "streamGenerateContent" in str(request.url):
+            is_stream = True
+
         return {
             "messages": messages,
+            "stream": is_stream,
             # Gemini doesn't strictly have a model in the body usually (it's in URL),
             # but we can try to extract or default.
             "model": "gemini-1.5-pro"
@@ -432,7 +446,7 @@ class UniversalConverter:
                     tool_calls = []
                     for part in candidate["content"]["parts"]:
                         is_thought = part.get("thought", False)
-                        
+
                         if "text" in part:
                             if is_thought:
                                 if "reasoning_content" not in delta:
