@@ -7,6 +7,7 @@ import DashboardHome from './pages/dashboard/DashboardHome';
 import PresetsPage from './pages/dashboard/PresetsPage';
 import RegexPage from './pages/dashboard/RegexPage';
 import KeysPage from './pages/dashboard/KeysPage';
+import ChannelsPage from './pages/dashboard/ChannelsPage';
 import LogsPage from './pages/dashboard/LogsPage';
 import ProfilePage from './pages/dashboard/ProfilePage';
 import AdminUsersPage from './pages/dashboard/AdminUsersPage';
@@ -22,7 +23,7 @@ function App() {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/initialize" element={<InitializePage />} />
-                
+
                 <Route path="/dashboard" element={<DashboardLayout />}>
                     {/* 普通用户及以上 */}
                     <Route element={<PrivateRoute allowedRoles={['user', 'admin', 'super_admin']} />}>
@@ -30,6 +31,7 @@ function App() {
                         <Route path="presets" element={<PresetsPage />} />
                         <Route path="regex" element={<RegexPage />} />
                         <Route path="keys" element={<KeysPage />} />
+                        <Route path="channels" element={<ChannelsPage />} />
                         <Route path="logs" element={<LogsPage />} />
                         <Route path="profile" element={<ProfilePage />} />
                     </Route>

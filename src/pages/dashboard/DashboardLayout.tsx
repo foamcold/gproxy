@@ -31,6 +31,7 @@ export default function DashboardLayout() {
         { icon: FileJson, label: '预设', path: '/dashboard/presets' },
         { icon: Regex, label: '正则', path: '/dashboard/regex' },
         { icon: Key, label: '密钥', path: '/dashboard/keys' },
+        { icon: Settings, label: '渠道', path: '/dashboard/channels' },
         { icon: ScrollText, label: '日志', path: '/dashboard/logs' },
         { icon: Settings, label: '资料', path: '/dashboard/profile' },
         { icon: Users, label: '用户', path: '/dashboard/users', allowedRoles: ['admin', 'super_admin'] },

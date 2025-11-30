@@ -22,6 +22,7 @@ async def read_official_keys(
     page: int = 1,
     size: int = 10,
     status: str = "all", # all, normal, abnormal
+    channel_id: int = None,  # 按渠道过滤
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
@@ -29,6 +30,10 @@ async def read_official_keys(
     """
     skip = (page - 1) * size
     query = select(OfficialKey).filter(OfficialKey.user_id == current_user.id)
+    
+    # 按渠道过滤
+    if channel_id is not None:
+        query = query.filter(OfficialKey.channel_id == channel_id)
     
     if status == "normal":
         query = query.filter(OfficialKey.is_active == True, (OfficialKey.last_status == "active") | (OfficialKey.last_status == "200"))
@@ -70,6 +75,7 @@ async def create_official_key(
         key=key_in.key,
         user_id=current_user.id,
         is_active=key_in.is_active,
+        channel_id=key_in.channel_id,
     )
     db.add(key)
     await db.commit()
@@ -99,7 +105,8 @@ async def create_official_keys_batch(
             keys_to_insert.append({
                 "key": key_str,
                 "user_id": current_user.id,
-                "is_active": keys_in.is_active
+                "is_active": keys_in.is_active,
+                "channel_id": keys_in.channel_id,
             })
             existing_keys.add(key_str) # Add to set to handle duplicates within the batch
         else:
@@ -221,6 +228,7 @@ async def create_exclusive_key(
         user_id=current_user.id,
         is_active=key_in.is_active,
         preset_id=key_in.preset_id,
+        channel_id=key_in.channel_id,
         enable_regex=key_in.enable_regex,
     )
     db.add(key)

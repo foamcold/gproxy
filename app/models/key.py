@@ -9,6 +9,7 @@ class OfficialKey(Base):
     id = Column(Integer, primary_key=True, index=True)
     key = Column(String, unique=True, index=True, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"))
+    channel_id = Column(Integer, ForeignKey("channels.id"), nullable=True)
     usage_count = Column(Integer, default=0)
     error_count = Column(Integer, default=0)
     total_tokens = Column(BigInteger, default=0)
@@ -18,6 +19,7 @@ class OfficialKey(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User")
+    channel = relationship("Channel")
 
 class ExclusiveKey(Base):
     __tablename__ = "exclusive_keys"
@@ -29,9 +31,11 @@ class ExclusiveKey(Base):
     is_active = Column(Boolean, default=True)
     
     preset_id = Column(Integer, ForeignKey("presets.id"), nullable=True)
+    channel_id = Column(Integer, ForeignKey("channels.id"), nullable=True)
     enable_regex = Column(Boolean, default=False)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User")
     preset = relationship("Preset")
+    channel = relationship("Channel")
